@@ -73,6 +73,26 @@ module.exports = {
         const descColl  = await dmChannel.awaitMessages({ filter: filterDM, max: 1, time: 120_000, errors: ['time'] });
         const desc      = descColl.first().content;
 
+
+        //module.exports
+        module.exports = async (message) => {
+    if (message.author.bot) return;
+
+    // solo tickets
+    if (!message.channel.name.startsWith('ticket-') && 
+        !message.channel.name.startsWith('reclamado-')) return;
+
+    // enviar al dashboard
+    if (global.io) {
+        global.io.emit('message', {
+            user: message.author.username,
+            content: message.content
+        });
+    }
+};
+
+
+
         // Construir el embed de anuncio
         const embed = new EmbedBuilder()
           .setTitle(`📢 ${title}`)

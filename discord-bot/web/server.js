@@ -1,11 +1,19 @@
 const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 const fs = require('fs');
 const path = require('path');
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+
 const PORT = process.env.PORT || 3000;
 
-// leer tickets
+// guardar conexiones
+global.io = io;
+
+// leer data
 function getData() {
     const file = path.join(__dirname, '../data/data.json');
     if (!fs.existsSync(file)) return { tickets: {} };
@@ -20,32 +28,25 @@ app.get('/dashboard', (req, res) => {
     let html = `
     <html>
     <head>
-        <title>Dashboard Bot</title>
+        <title>Dashboard Live</title>
+        <script src="/socket.io/socket.io.js"></script>
         <style>
             body { font-family: Arial; background: #1e1e2f; color: white; }
-            .card { background: #2b2d31; padding: 15px; margin: 10px; border-radius: 10px; }
-            button { padding: 10px; border: none; background: red; color: white; cursor: pointer; }
+            .chat { background: #2b2d31; padding: 10px; margin: 10px; border-radius: 10px; max-height: 300px; overflow-y: auto; }
         </style>
     </head>
     <body>
-        <h1>🎫 Tickets Activos</h1>
-    `;
+        <h1>📡 Tickets en Vivo</h1>
+        <div id="chat" class="chat"></div>
 
-    for (const userId in tickets) {
-        html += `
-        <div class="card">
-            👤 Usuario: ${userId}<br>
-            📁 Canal: ${tickets[userId]}<br>
-            <button onclick="cerrar('${tickets[userId]}')">Cerrar</button>
-        </div>`;
-    }
-
-    html += `
         <script>
-            function cerrar(channelId) {
-                fetch('/close/' + channelId)
-                .then(() => location.reload());
-            }
+            const socket = io();
+
+            socket.on('message', (data) => {
+                const div = document.getElementById('chat');
+                div.innerHTML += "<p><b>" + data.user + ":</b> " + data.content + "</p>";
+                div.scrollTop = div.scrollHeight;
+            });
         </script>
     </body>
     </html>
@@ -54,23 +55,9 @@ app.get('/dashboard', (req, res) => {
     res.send(html);
 });
 
-// cerrar ticket desde web
-app.get('/close/:channelId', async (req, res) => {
-    const channelId = req.params.channelId;
-
-    const client = global.discordClient;
-    const channel = client.channels.cache.get(channelId);
-
-    if (channel) {
-        await channel.delete().catch(() => {});
-    }
-
-    res.send("ok");
-});
-
-// health check (Render)
+// health
 app.get('/health', (req, res) => res.send('OK'));
 
-app.listen(PORT, () => {
-    console.log(`🌐 Dashboard activo en puerto ${PORT}`);
+server.listen(PORT, () => {
+    console.log('🌐 Dashboard con sockets activo');
 });
