@@ -150,3 +150,23 @@ module.exports = {
   STATUS_COLORS,
   capitalize,
 };
+let ticketCount = 0;
+
+function generateTicketName(category) {
+    ticketCount++;
+    return `ticket-${category}-${String(ticketCount).padStart(4, '0')}`;
+}
+
+async function setTicketClaimed(channel, staffName) {
+    await channel.setName(`reclamado-${staffName}`);
+}
+
+async function setTicketWaiting(channel, username) {
+    await channel.setName(`espera-${username}`);
+}
+
+module.exports = {
+    generateTicketName,
+    setTicketClaimed,
+    setTicketWaiting
+};

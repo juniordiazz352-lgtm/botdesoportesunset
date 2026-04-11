@@ -1,96 +1,271 @@
-/**
- * interactions/modalHandler.js
- * Gestiona el envío de todos los Modals (formularios emergentes).
- */
-
-const { EmbedBuilder } = require('discord.js');
 const {
-  createTicketChannel, buildWelcomeEmbed, buildTicketButtons, capitalize,
-} = require('../utils/ticketUtils');
-const { getConfig, getData, saveData, getForm } = require('../utils/dataManager');
+    ChannelType,
+    PermissionFlagsBits,
+    EmbedBuilder,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle
+} = require('discord.js');
 
-module.exports = async function handleModal(interaction, client) {
-  const { customId, guild, member } = interaction;
+const fs = require('fs');
+const path = require('path');
 
-  // ══════════════════════════════════════════════════════════
-  //  MODAL DE APERTURA DE TICKET
-  // ══════════════════════════════════════════════════════════
-  if (customId.startsWith('ticket_modal_')) {
-    const category = customId.replace('ticket_modal_', '');
-    const reason   = interaction.fields.getTextInputValue('ticket_reason');
-    const priority = interaction.fields.getTextInputValue('ticket_priority') || 'media';
+const { canCreateTicket, registerTicket } = require('../utils/dataManager');
+const { generateTicketName } = require('../utils/ticketUtils');
 
-    await interaction.deferReply({ ephemeral: true });
+const configPath = path.join(__dirname, '../data/config.json');
+const config = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath)) : {};
+
+module.exports = async (interaction) => {
+    if (!interaction.isModalSubmit()) return;
 
     try {
-      const { channel, ticketData } = await createTicketChannel(guild, member, category);
 
-      // Embed de bienvenida
-      const welcomeEmbed = buildWelcomeEmbed(member, category, ticketData);
+        // ======================================================
+        // 🎟️ CREACIÓN DE TICKETS (DESDE MODAL)
+        // ======================================================
+        if (interaction.customId.startsWith('ticket_modal_')) {
 
-      // Agregar info del modal al embed
-      welcomeEmbed.addFields(
-        { name: '📋 Motivo',   value: reason,                            inline: false },
-        { name: '⚡ Prioridad', value: capitalize(priority.toLowerCase()), inline: true  },
-      );
+            const categoria = interaction.customId.split('_')[2] || 'general';
 
-      const buttons = buildTicketButtons();
-      await channel.send({ content: `<@${member.id}>`, embeds: [welcomeEmbed], components: buttons });
+            // 🔒 Anti-spam
+            const check = canCreateTicket(interaction.user.id);
+            if (!check.allowed) {
+                return interaction.reply({
+                    content: `❌ ${check.reason}`,
+                    ephemeral: true
+                });
+            }
 
-      // Ping al staff
-      const config    = getConfig();
-      const staffRole = guild.roles.cache.get(config.staffRole);
-      if (staffRole) await channel.send(`📢 ${staffRole} — Nuevo ticket de ${member}`);
+            await interaction.deferReply({ ephemeral: true });
 
-      await interaction.editReply({ content: `✅ Tu ticket fue creado: ${channel}` });
-    } catch (err) {
-      console.error('Error creando ticket:', err);
-      await interaction.editReply({ content: `❌ Error: ${err.message}` });
-    }
-    return;
-  }
+            const guild = interaction.guild;
 
-  // ══════════════════════════════════════════════════════════
-  //  MODAL DE RAZÓN DE RECHAZO DE FORMULARIO
-  // ══════════════════════════════════════════════════════════
-  if (customId.startsWith('form_reject_reason_')) {
-    const submissionId = customId.replace('form_reject_reason_', '');
-    const reason       = interaction.fields.getTextInputValue('reject_reason');
+            // 📂 Crear nombre del ticket
+            const channelName = generateTicketName(categoria);
 
-    const data = getData();
-    const submission = data.formSubmissions?.[submissionId];
-    if (!submission) return interaction.reply({ content: '❌ Respuesta no encontrada.', ephemeral: true });
+            // 🧱 Crear canal
+            const channel = await guild.channels.create({
+                name: channelName,
+                type: ChannelType.GuildText,
+                parent: config.categoria_tickets || null,
+                permissionOverwrites: [
+                    {
+                        id: guild.id,
+                        deny: [PermissionFlagsBits.ViewChannel],
+                    },
+                    {
+                        id: interaction.user.id,
+                        allow: [
+                            PermissionFlagsBits.ViewChannel,
+                            PermissionFlagsBits.SendMessages,
+                            PermissionFlagsBits.ReadMessageHistory
+                        ],
+                    },
+                    {
+                        id: config.rol_staff,
+                        allow: [
+                            PermissionFlagsBits.ViewChannel,
+                            PermissionFlagsBits.SendMessages,
+                            PermissionFlagsBits.ReadMessageHistory,
+                            PermissionFlagsBits.ManageChannels
+                        ],
+                    }
+                ],
+            });
 
-    const form = getForm(submission.formId);
-    const rejectChannel = guild.channels.cache.get(form?.rejectChannel);
+            // 🧠 Guardar datos en el topic (logs pro)
+            const startTime = Date.now();
+            await channel.setTopic(`owner:${interaction.user.id}|start:${startTime}`);
 
-    if (rejectChannel) {
-      const embed = new EmbedBuilder()
-        .setTitle(`❌ Formulario Rechazado: ${form?.title || 'Formulario'}`)
-        .setColor(0xED4245)
-        .setDescription(submission.answers.map((a, i) => `**${i + 1}. ${a.question}**\n${a.answer}`).join('\n\n'))
-        .addFields(
-          { name: 'Usuario',         value: `<@${submission.userId}>`, inline: true },
-          { name: 'Razón de rechazo', value: reason,                   inline: false },
-        )
-        .setTimestamp();
-      await rejectChannel.send({ embeds: [embed] });
-    }
+            // 💾 Registrar ticket (anti-spam)
+            registerTicket(interaction.user.id, channel.id);
 
-    // Notificar al usuario por DM
+            // 📩 Respuesta al usuario
+            await interaction.editReply(`✅ Ticket creado: ${channel}`);
+
+            // 📢 Embed dentro del ticket
+            const embed = new EmbedBuilder()
+                .setTitle('🎫 Ticket abierto')
+                .setDescription(`Hola ${interaction.user}, un staff te atenderá pronto.\n\n📂 Categoría: **${categoria}**`)
+                .setColor('#2b2d31')
+                .setTimestamp();
+
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('claim_ticket')
+                    .setLabel('👤 Reclamar')
+                    .setStyle(ButtonStyle.Primary),
+
+                new ButtonBuilder()
+                    .setCustomId('close_ticket')
+                    .setLabel('🔒 Cerrar')
+                    .setStyle(ButtonStyle.Danger)
+            );
+
+            await channel.send({
+                content: `<@${interaction.user.id}>`,
+                embeds: [embed],
+                components: [row]
+            });
+
+            // 📊 LOGS
+            const logsChannel = guild.channels.cache.get(config.canal_logs);
+const {
+    ChannelType,
+    PermissionFlagsBits,
+    EmbedBuilder,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle
+} = require('discord.js');
+
+const fs = require('fs');
+const path = require('path');
+
+const { canCreateTicket, registerTicket } = require('../utils/dataManager');
+const { generateTicketName } = require('../utils/ticketUtils');
+
+const configPath = path.join(__dirname, '../data/config.json');
+const config = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath)) : {};
+
+module.exports = async (interaction) => {
+    if (!interaction.isModalSubmit()) return;
+
     try {
-      const user = await client.users.fetch(submission.userId);
-      await user.send({
-        embeds: [
-          new EmbedBuilder()
-            .setTitle(`❌ Tu solicitud fue rechazada`)
-            .setColor(0xED4245)
-            .setDescription(`Tu formulario **${form?.title}** fue rechazado.\n\n**Razón:** ${reason}`),
-        ],
-      });
-    } catch (e) { /* DMs cerrados */ }
 
-    await interaction.update({ content: '✅ Rechazo registrado y enviado.', components: [] });
-    return;
-  }
+        // ======================================================
+        // 🎟️ CREACIÓN DE TICKETS (DESDE MODAL)
+        // ======================================================
+        if (interaction.customId.startsWith('ticket_modal_')) {
+
+            const categoria = interaction.customId.split('_')[2] || 'general';
+
+            // 🔒 Anti-spam
+            const check = canCreateTicket(interaction.user.id);
+            if (!check.allowed) {
+                return interaction.reply({
+                    content: `❌ ${check.reason}`,
+                    ephemeral: true
+                });
+            }
+
+            await interaction.deferReply({ ephemeral: true });
+
+            const guild = interaction.guild;
+
+            // 📂 Crear nombre del ticket
+            const channelName = generateTicketName(categoria);
+
+            // 🧱 Crear canal
+            const channel = await guild.channels.create({
+                name: channelName,
+                type: ChannelType.GuildText,
+                parent: config.categoria_tickets || null,
+                permissionOverwrites: [
+                    {
+                        id: guild.id,
+                        deny: [PermissionFlagsBits.ViewChannel],
+                    },
+                    {
+                        id: interaction.user.id,
+                        allow: [
+                            PermissionFlagsBits.ViewChannel,
+                            PermissionFlagsBits.SendMessages,
+                            PermissionFlagsBits.ReadMessageHistory
+                        ],
+                    },
+                    {
+                        id: config.rol_staff,
+                        allow: [
+                            PermissionFlagsBits.ViewChannel,
+                            PermissionFlagsBits.SendMessages,
+                            PermissionFlagsBits.ReadMessageHistory,
+                            PermissionFlagsBits.ManageChannels
+                        ],
+                    }
+                ],
+            });
+
+            // 🧠 Guardar datos en el topic (logs pro)
+            const startTime = Date.now();
+            await channel.setTopic(`owner:${interaction.user.id}|start:${startTime}`);
+
+            // 💾 Registrar ticket (anti-spam)
+            registerTicket(interaction.user.id, channel.id);
+
+            // 📩 Respuesta al usuario
+            await interaction.editReply(`✅ Ticket creado: ${channel}`);
+
+            // 📢 Embed dentro del ticket
+            const embed = new EmbedBuilder()
+                .setTitle('🎫 Ticket abierto')
+                .setDescription(`Hola ${interaction.user}, un staff te atenderá pronto.\n\n📂 Categoría: **${categoria}**`)
+                .setColor('#2b2d31')
+                .setTimestamp();
+
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('claim_ticket')
+                    .setLabel('👤 Reclamar')
+                    .setStyle(ButtonStyle.Primary),
+
+                new ButtonBuilder()
+                    .setCustomId('close_ticket')
+                    .setLabel('🔒 Cerrar')
+                    .setStyle(ButtonStyle.Danger)
+            );
+
+            await channel.send({
+                content: `<@${interaction.user.id}>`,
+                embeds: [embed],
+                components: [row]
+            });
+
+            // 📊 LOGS
+            const logsChannel = guild.channels.cache.get(config.canal_logs);
+            if (logsChannel) {
+                await logsChannel.send({
+                    content: `📊 Ticket creado\n👤 Usuario: ${interaction.user}\n📂 Categoría: ${categoria}\n📁 Canal: ${channel}`
+                });
+            }
+        }
+
+        // ======================================================
+        // 🧾 CONFIG PANEL TICKETS (SI USAS MODAL PANEL)
+        // ======================================================
+        if (interaction.customId === 'panel_ticket_config') {
+
+            const title = interaction.fields.getTextInputValue('title');
+            const description = interaction.fields.getTextInputValue('description');
+            const color = interaction.fields.getTextInputValue('color') || '#2b2d31';
+
+            const embed = new EmbedBuilder()
+                .setTitle(title)
+                .setDescription(description)
+                .setColor(color);
+
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('ticket_general')
+                    .setLabel('🎫 Crear Ticket')
+                    .setStyle(ButtonStyle.Primary)
+            );
+
+            await interaction.reply({
+                embeds: [embed],
+                components: [row]
+            });
+        }
+
+    } catch (error) {
+        console.error('❌ Error en modalHandler:', error);
+
+        if (!interaction.replied && !interaction.deferred) {
+            await interaction.reply({
+                content: '❌ Ocurrió un error procesando el formulario.',
+                ephemeral: true
+            });
+        }
+    }
 };
