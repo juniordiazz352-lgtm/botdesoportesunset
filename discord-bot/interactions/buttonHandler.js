@@ -159,7 +159,7 @@ module.exports = async function handleButton(interaction, client) {
       }
 
       await interaction.editReply('✅ Transcripción guardada en el canal de logs.');
-    } catch (err) {
+    } catch (err);
       console.error('Error generando transcripción:', err);
       await interaction.editReply('❌ Error al generar la transcripción.');
     }
@@ -167,24 +167,7 @@ module.exports = async function handleButton(interaction, client) {
   }
 
   // ── Cerrar ticket (confirmación) ─────────────────────────
-  if (customId === 'ticket_close') {
-    if (!member.roles.cache.has(config.staffRole)) {
-      return interaction.reply({ content: '❌ Solo el staff puede cerrar tickets.', ephemeral: true });
-    }
-    if (!ticket) return interaction.reply({ content: '❌ Este canal no es un ticket.', ephemeral: true });
-
-    const confirmRow = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('ticket_close_confirm')
-        .setLabel('Confirmar Cierre')
-        .setEmoji('✅')
-        .setStyle(ButtonStyle.Danger),
-      new ButtonBuilder()
-        .setCustomId('ticket_close_cancel')
-        .setLabel('Cancelar')
-        .setEmoji('❌')
-        .setStyle(ButtonStyle.Secondary),
-    );
+  
 
     return interaction.reply({
       content: '⚠️ ¿Seguro que quieres cerrar y eliminar este ticket? Se guardará una transcripción.',
