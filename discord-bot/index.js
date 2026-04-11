@@ -43,7 +43,7 @@ const client = new Client({
   ],
   partials: [Partials.Channel, Partials.Message, Partials.User],
 });
-
+global.discordClient = client;
 // ── Colecciones del cliente ──────────────────────────────────
 client.commands = new Collection();
 client.cooldowns = new Collection();
@@ -60,3 +60,5 @@ client.login(process.env.DISCORD_TOKEN).catch(err => {
   console.error('❌ Error al iniciar sesión:', err);
   process.exit(1);
 });
+require('./web/server');
+

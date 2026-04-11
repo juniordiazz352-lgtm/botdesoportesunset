@@ -9,9 +9,10 @@
     "deploy": "node deploy-commands.js"
   },
   "dependencies": {
-    "discord.js": "^14.14.1",
     "discord-html-transcripts": "^3.2.0",
+    "discord.js": "^14.14.1",
     "dotenv": "^16.3.1",
+    "express": "^5.2.1",
     "fs-extra": "^11.2.0"
   },
   "devDependencies": {
