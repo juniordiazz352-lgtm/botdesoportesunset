@@ -1,0 +1,20 @@
+# render.yaml
+# Configuración automática para Render.com
+# Render lo detecta solo si está en la raíz del repositorio.
+
+services:
+  - type: web
+    name: discord-support-bot
+    runtime: node
+    plan: free                      # Plan gratuito
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: DISCORD_TOKEN
+        sync: false                 # Lo vas a ingresar manualmente en el dashboard
+      - key: CLIENT_ID
+        sync: false
+      - key: GUILD_ID
+        sync: false
+      - key: NODE_ENV
+        value: production

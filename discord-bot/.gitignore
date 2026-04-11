@@ -1,0 +1,6 @@
+node_modules/
+.env
+data/config.json
+data/data.json
+data/forms.json
+*.log
