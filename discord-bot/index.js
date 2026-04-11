@@ -8,7 +8,6 @@
 const { Client, GatewayIntentBits, Partials, Collection } = require('discord.js');
 const { loadCommands } = require('./handlers/commandHandler');
 const { loadEvents } = require('./handlers/eventHandler');
-const dataManager = require('./utils/dataManager');
 const http = require('http');
 require('dotenv').config();
 
