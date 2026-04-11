@@ -25,7 +25,7 @@ if (!process.env.DISCORD_TOKEN) {
 // ───────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 
-const server = http.createServer((req, res) => {
+global.server = http.createServer((req, res) => {
     if (req.url === '/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
@@ -39,7 +39,7 @@ const server = http.createServer((req, res) => {
     }
 });
 
-server.listen(PORT, () => {
+global.server.listen(PORT, () => {
     console.log(`🌐 HTTP listo en puerto ${PORT}`);
 });
 

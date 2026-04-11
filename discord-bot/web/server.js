@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
-const server = http.createServer(app);
+const server = global.server;
 const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
@@ -58,6 +58,3 @@ app.get('/dashboard', (req, res) => {
 // health
 app.get('/health', (req, res) => res.send('OK'));
 
-server.listen(PORT, () => {
-    console.log('🌐 Dashboard con sockets activo');
-});
