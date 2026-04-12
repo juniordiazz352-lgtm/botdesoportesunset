@@ -166,3 +166,141 @@ module.exports = {
                 await message.reply('❌ No encontré el código en tu descripción de Roblox. Asegúrate de haberlo puesto correctamente y vuelve a enviar tu usuario.');
             }
         }
+
+        // ====================================
+        // PROCESAR RESPUESTA DE VERIFICACIÓN (DM)
+        // ====================================
+        if (message.channel.type === 1) { // DM
+            const { loadCodes, saveCodes, verifyCode } = require('../utils/robloxVerify');
+            let codes = loadCodes();
+            const userData = codes[message.author.id];
+            if (!userData || userData.verified) return;
+
+            const robloxUsername = message.content.trim();
+            if (!robloxUsername) return;
+
+            const isValid = await verifyCode(robloxUsername, userData.code);
+            if (isValid) {
+                userData.verified = true;
+                userData.robloxUser = robloxUsername;
+                saveCodes(codes);
+
+                // Buscar el servidor (guild) donde el usuario necesita ser verificado
+                // Asumimos que el bot está en un solo servidor principal; podrías configurarlo
+                const guild = message.client.guilds.cache.first();
+                if (guild) {
+                    const member = guild.members.cache.get(message.author.id);
+                    if (member) {
+                        // Cambiar apodo a "nombre (@roblox)"
+                        const newNickname = `${member.user.username} (@${robloxUsername})`;
+                        await member.setNickname(newNickname).catch(() => {});
+                        
+                        // Opcional: dar rol de verificado
+                        const config = JSON.parse(fs.readFileSync('./data/config.json'));
+                        if (config.rol_verified) {
+                            const role = guild.roles.cache.get(config.rol_verified);
+                            if (role) await member.roles.add(role);
+                        }
+                    }
+                }
+
+                await message.reply('✅ ¡Verificación exitosa! Tu apodo ha sido actualizado.');
+            } else {
+                await message.reply('❌ No encontré el código en tu descripción de Roblox. Asegúrate de haberlo puesto correctamente y vuelve a enviar tu usuario.');
+            }
+        }
+
+        // ====================================
+        // VERIFICACIÓN POR DM (continuación)
+        // ====================================
+        if (message.channel.type === 1 && !message.author.bot) {
+            const { loadCodes, saveCodes, verifyCode } = require('../utils/robloxVerify');
+            let codes = loadCodes();
+            const userData = codes[message.author.id];
+            if (!userData || userData.verified) return;
+
+            const robloxUsername = message.content.trim();
+            if (!robloxUsername) return;
+
+            const isValid = await verifyCode(robloxUsername, userData.code);
+            if (isValid) {
+                userData.verified = true;
+                userData.robloxUser = robloxUsername;
+                saveCodes(codes);
+
+                const guild = message.client.guilds.cache.first(); // O puedes obtener el servidor específico
+                if (guild) {
+                    const member = guild.members.cache.get(message.author.id);
+                    if (member) {
+                        // Cambiar apodo
+                        const newNickname = `${member.user.username} (@${robloxUsername})`;
+                        await member.setNickname(newNickname).catch(() => {});
+
+                        // Asignar rol de verificado si está configurado
+                        let config = {};
+                        if (fs.existsSync('./data/config.json')) {
+                            config = JSON.parse(fs.readFileSync('./data/config.json'));
+                        }
+                        if (config.rol_verified) {
+                            const role = guild.roles.cache.get(config.rol_verified);
+                            if (role) await member.roles.add(role);
+                        }
+                    }
+                }
+
+                await message.reply('✅ ¡Verificación exitosa! Tu apodo ha sido actualizado.');
+            } else {
+                await message.reply('❌ No encontré el código en tu descripción de Roblox. Asegúrate de haberlo puesto correctamente y vuelve a enviar tu usuario.');
+            }
+        }
+
+        // ====================================
+        // VERIFICACIÓN POR DM (RESPUESTA)
+        // ====================================
+        if (message.channel.type === 1 && !message.author.bot) {
+            const { loadCodes, saveCodes, verifyCode } = require('../utils/robloxVerify');
+            let codes = loadCodes();
+            const userData = codes[message.author.id];
+            if (!userData || userData.verified) return;
+
+            const robloxUsername = message.content.trim();
+            if (!robloxUsername) return;
+
+            const isValid = await verifyCode(robloxUsername, userData.code);
+            if (isValid) {
+                userData.verified = true;
+                userData.robloxUser = robloxUsername;
+                saveCodes(codes);
+
+                // Obtener servidor y miembro (asume que el bot está en un servidor principal)
+                const guild = message.client.guilds.cache.first();
+                if (guild) {
+                    const member = guild.members.cache.get(message.author.id);
+                    if (member) {
+                        // Cambiar apodo
+                        const newNickname = `${member.user.username} (@${robloxUsername})`;
+                        await member.setNickname(newNickname).catch(() => {});
+
+                        // Cargar configuración de roles de verificación
+                        let config = {};
+                        if (fs.existsSync('./data/config.json')) {
+                            config = JSON.parse(fs.readFileSync('./data/config.json'));
+                        }
+                        // Quitar rol "no verificado"
+                        if (config.verify && config.verify.noVerificado) {
+                            const role = guild.roles.cache.get(config.verify.noVerificado);
+                            if (role) await member.roles.remove(role).catch(() => {});
+                        }
+                        // Asignar rol "verificado"
+                        if (config.verify && config.verify.verificado) {
+                            const role = guild.roles.cache.get(config.verify.verificado);
+                            if (role) await member.roles.add(role).catch(() => {});
+                        }
+                    }
+                }
+
+                await message.reply('✅ ¡Verificación exitosa! Tu apodo ha sido actualizado y se te ha asignado el rol correspondiente.');
+            } else {
+                await message.reply('❌ No encontré el código en tu descripción de Roblox. Asegúrate de haberlo puesto correctamente y vuelve a enviar tu usuario.');
+            }
+        }

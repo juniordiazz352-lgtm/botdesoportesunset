@@ -1,78 +1,47 @@
-const { AttachmentBuilder, EmbedBuilder } = require('discord.js');
-const Canvas = require('canvas');
+const { EmbedBuilder } = require('discord.js');
 const fs = require('fs');
-const { registerFont } = require('canvas');
-// Registrar fuente si quieres (opcional)
-// registerFont('./ruta/fuente.ttf', { family: 'MiFuente' });
 
 module.exports = {
     name: 'guildMemberAdd',
     async execute(member) {
-        const configPath = './data/welcome.json';
-        if (!fs.existsSync(configPath)) return;
-        const config = JSON.parse(fs.readFileSync(configPath));
-        const channel = member.guild.channels.cache.get(config.welcomeChannel);
-        if (!channel) return;
-
-        // Crear lienzo
-        const canvas = Canvas.createCanvas(1024, 500);
-        const ctx = canvas.getContext('2d');
-
-        // Fondo (color o imagen)
-        if (config.welcomeImage) {
-            try {
-                const background = await Canvas.loadImage(config.welcomeImage);
-                ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
-            } catch (e) {
-                ctx.fillStyle = '#2c2f33';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-            }
-        } else {
-            ctx.fillStyle = '#2c2f33';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        let config = {};
+        if (fs.existsSync('./data/config.json')) {
+            config = JSON.parse(fs.readFileSync('./data/config.json'));
         }
 
-        // Círculo con foto de perfil
-        const avatarURL = member.user.displayAvatarURL({ extension: 'png', size: 256 });
-        const avatar = await Canvas.loadImage(avatarURL);
-        const radius = 150;
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2 - 50;
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2, true);
-        ctx.closePath();
-        ctx.clip();
-        ctx.drawImage(avatar, centerX - radius, centerY - radius, radius * 2, radius * 2);
-        ctx.restore();
+        // Asignar múltiples roles de bienvenida
+        if (config.welcome && config.welcome.roles && config.welcome.roles.length) {
+            for (const roleId of config.welcome.roles) {
+                const role = member.guild.roles.cache.get(roleId);
+                if (role) {
+                    await member.roles.add(role).catch(err => console.error(`Error al asignar rol ${roleId}:`, err));
+                }
+            }
+        }
 
-        // Borde del círculo
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, radius + 5, 0, Math.PI * 2, true);
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 10;
-        ctx.stroke();
+        // Asignar rol "no verificado" si existe (para verificación)
+        if (config.verify && config.verify.noVerificado) {
+            const role = member.guild.roles.cache.get(config.verify.noVerificado);
+            if (role) {
+                await member.roles.add(role).catch(err => console.error('Error al asignar rol no verificado:', err));
+            }
+        }
 
-        // Texto del nombre
-        ctx.font = 'bold 42px "Segoe UI"';
-        ctx.fillStyle = '#ffffff';
-        ctx.shadowColor = 'rgba(0,0,0,0.5)';
-        ctx.shadowBlur = 10;
-        ctx.fillText(member.user.username, centerX - ctx.measureText(member.user.username).width / 2, centerY + radius + 60);
-
-        // Mensaje personalizado
-        let messageText = config.welcomeMessage.replace('{user}', member.user.tag).replace('{server}', member.guild.name);
-        ctx.font = '28px "Segoe UI"';
-        ctx.fillStyle = '#dddddd';
-        ctx.fillText(messageText, centerX - ctx.measureText(messageText).width / 2, centerY + radius + 120);
-
-        const attachment = new AttachmentBuilder(canvas.toBuffer(), { name: 'welcome.png' });
-        const embed = new EmbedBuilder()
-            .setTitle(`🎉 ¡Bienvenido ${member.user.username}!`)
-            .setImage('attachment://welcome.png')
-            .setColor('#00ff00')
-            .setDescription(messageText)
-            .setTimestamp();
-        await channel.send({ embeds: [embed], files: [attachment] });
+        // Enviar mensaje de bienvenida
+        if (config.welcome && config.welcome.canal) {
+            const channel = member.guild.channels.cache.get(config.welcome.canal);
+            if (channel) {
+                let mensaje = config.welcome.mensaje.replace(/{user}/g, `<@${member.id}>`);
+                const embed = new EmbedBuilder()
+                    .setTitle('🎉 ¡Bienvenido!')
+                    .setDescription(mensaje)
+                    .setColor('#00ff00')
+                    .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
+                    .setImage(config.welcome.imagen)
+                    .setFooter({ text: `Miembro #${member.guild.memberCount}` })
+                    .setTimestamp();
+                await channel.send({ embeds: [embed] });
+            }
+        }
     }
 };

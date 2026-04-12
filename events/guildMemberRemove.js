@@ -4,19 +4,24 @@ const fs = require('fs');
 module.exports = {
     name: 'guildMemberRemove',
     async execute(member) {
-        const configPath = './data/goodbye.json';
-        if (!fs.existsSync(configPath)) return;
-        const config = JSON.parse(fs.readFileSync(configPath));
-        const channel = member.guild.channels.cache.get(config.goodbyeChannel);
-        if (!channel) return;
+        let config = {};
+        if (fs.existsSync('./data/config.json')) {
+            config = JSON.parse(fs.readFileSync('./data/config.json'));
+        }
 
-        let message = config.goodbyeMessage.replace('{user}', member.user.tag);
-        const embed = new EmbedBuilder()
-            .setTitle(`👋 ¡Hasta luego ${member.user.username}!`)
-            .setDescription(message)
-            .setColor('#ff0000')
-            .setThumbnail(member.user.displayAvatarURL())
-            .setTimestamp();
-        await channel.send({ embeds: [embed] });
+        if (config.goodbye && config.goodbye.canal) {
+            const channel = member.guild.channels.cache.get(config.goodbye.canal);
+            if (channel) {
+                let mensaje = config.goodbye.mensaje.replace(/{user}/g, member.user.tag);
+                const embed = new EmbedBuilder()
+                    .setTitle('👋 Miembro abandonó')
+                    .setDescription(mensaje)
+                    .setColor('#ff0000')
+                    .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
+                    .setFooter({ text: `Ahora somos ${member.guild.memberCount} miembros` })
+                    .setTimestamp();
+                await channel.send({ embeds: [embed] });
+            }
+        }
     }
 };
