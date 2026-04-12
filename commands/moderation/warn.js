@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const fs = require('fs');
 const { Warn, StaffStat } = require('../../utils/database');
 
@@ -8,6 +8,7 @@ module.exports = {
         .setDescription('Advertir a un usuario')
         .addUserOption(opt => opt.setName('usuario').setDescription('Usuario').setRequired(true))
         .addStringOption(opt => opt.setName('razón').setDescription('Motivo').setRequired(false)),
+
     async execute(interaction) {
         const config = JSON.parse(fs.readFileSync('./data/config.json'));
         if (!interaction.member.roles.cache.has(config.rol_staff)) {
@@ -17,20 +18,19 @@ module.exports = {
         const user = interaction.options.getUser('usuario');
         const reason = interaction.options.getString('razón') || 'Sin razón';
 
-        await Warn.create({
-            userId: user.id,
-            guildId: interaction.guild.id,
-            warnedBy: interaction.user.id,
-            reason
-        });
+        // Guardar warn (usando JSON si no hay MongoDB)
+        const warnsPath = './data/warns.json';
+        let warns = {};
+        if (fs.existsSync(warnsPath)) warns = JSON.parse(fs.readFileSync(warnsPath));
+        if (!warns[user.id]) warns[user.id] = [];
+        warns[user.id].push({ warnedBy: interaction.user.id, reason, date: Date.now() });
+        fs.writeFileSync(warnsPath, JSON.stringify(warns, null, 2));
 
-        // Actualizar estadísticas del staff que emitió la warn
-        await StaffStat.findOneAndUpdate(
-            { userId: interaction.user.id },
-            { $inc: { warnsEmitidos: 1 } },
-            { upsert: true, new: true }
-        );
-
-        await interaction.reply({ content: `⚠️ ${user.tag} ha sido advertido.\nRazón: ${reason}` });
+        const embed = new EmbedBuilder()
+            .setTitle('⚠️ Usuario advertido')
+            .setDescription(`${user} ha sido advertido por ${interaction.user}`)
+            .addFields({ name: 'Razón', value: reason })
+            .setColor('#ff9900');
+        await interaction.reply({ embeds: [embed] });
     }
 };
