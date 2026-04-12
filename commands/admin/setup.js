@@ -19,13 +19,11 @@ module.exports = {
             const feedback = interaction.options.getChannel('feedback');
             const verified = interaction.options.getRole('verified');
 
-            // Validar categoría
             const categoria = interaction.guild.channels.cache.get(categoriaId);
             if (!categoria || categoria.type !== 4) {
-                return interaction.reply({ content: '❌ ID de categoría inválido. Asegúrate de copiar el ID numérico correcto.', ephemeral: true });
+                return interaction.reply({ content: '❌ ID de categoría inválido. Usa el ID numérico (no la mención).', ephemeral: true });
             }
 
-            // Crear objeto de configuración
             const config = {
                 canal_logs: logs.id,
                 rol_staff: staff.id,
@@ -33,9 +31,6 @@ module.exports = {
                 canal_feedback: feedback.id,
                 rol_verified: verified ? verified.id : null
             };
-
-            // Guardar en data/config.json (crear carpeta si no existe)
-            if (!fs.existsSync('./data')) fs.mkdirSync('./data');
             fs.writeFileSync('./data/config.json', JSON.stringify(config, null, 2));
 
             const embed = new EmbedBuilder()
@@ -48,11 +43,10 @@ module.exports = {
                     { name: '⭐ Feedback', value: `${feedback}`, inline: true },
                     { name: '✅ Verificado', value: verified ? `${verified}` : 'No configurado', inline: true }
                 );
-
             await interaction.reply({ embeds: [embed], ephemeral: true });
         } catch (error) {
-            console.error('Error en setup:', error);
-            await interaction.reply({ content: '❌ Error al guardar la configuración. Revisa los permisos del bot.', ephemeral: true });
+            console.error(error);
+            await interaction.reply({ content: '❌ Error al guardar configuración.', ephemeral: true });
         }
     }
 };

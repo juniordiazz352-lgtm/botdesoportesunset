@@ -19,8 +19,7 @@ function generateCode() {
 async function getRobloxUserId(username) {
     const res = await fetch(`https://users.roblox.com/v1/users/search?keyword=${username}&limit=1`);
     const data = await res.json();
-    if (data.data && data.data.length > 0) return data.data[0].id;
-    return null;
+    return data.data?.[0]?.id || null;
 }
 
 async function getUserDescription(userId) {
