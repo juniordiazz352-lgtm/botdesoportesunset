@@ -7,7 +7,7 @@ module.exports = {
         if (message.author.bot) return;
 
         // ====================================
-        // !say
+        // !say <texto>
         // ====================================
         if (message.content.startsWith('!say')) {
             const text = message.content.slice(5).trim();
@@ -18,7 +18,7 @@ module.exports = {
         }
 
         // ====================================
-        // !embed
+        // !embed <título> | <descripción>
         // ====================================
         if (message.content.startsWith('!embed')) {
             const content = message.content.slice(7).trim();
@@ -58,7 +58,7 @@ module.exports = {
         if (message.content === '!info') {
             const embed = new EmbedBuilder()
                 .setTitle('🤖 Información del Bot')
-                .setDescription('Bot de soporte profesional con sistema de tickets, verificación Roblox y bienvenidas')
+                .setDescription('Bot de soporte profesional con tickets, verificación Roblox y bienvenidas')
                 .setColor('#00ff00')
                 .addFields(
                     { name: '📡 Ping', value: `${Math.round(message.client.ws.ping)}ms`, inline: true },
@@ -100,118 +100,54 @@ module.exports = {
         }
 
         // ====================================
-        // !verify (alternativa al slash)
+        // !purge <cantidad> (solo staff)
+        // ====================================
+        if (message.content.startsWith('!purge')) {
+            let config = {};
+            if (fs.existsSync('./data/config.json')) {
+                config = JSON.parse(fs.readFileSync('./data/config.json'));
+            }
+            const isStaff = message.member.roles.cache.has(config.rol_staff);
+            if (!isStaff) {
+                return message.reply('❌ No tienes permiso.').then(m => setTimeout(() => m.delete(), 3000));
+            }
+            const args = message.content.split(' ');
+            let amount = parseInt(args[1]);
+            if (isNaN(amount) || amount < 1) amount = 10;
+            if (amount > 100) amount = 100;
+            const fetched = await message.channel.messages.fetch({ limit: amount });
+            await message.channel.bulkDelete(fetched, true);
+            const msg = await message.channel.send(`🗑️ Se borraron ${fetched.size} mensajes.`);
+            setTimeout(() => msg.delete(), 3000);
+            await message.delete().catch(() => {});
+            return;
+        }
+
+        // ====================================
+        // !verify (alternativa a /verify)
         // ====================================
         if (message.content === '!verify') {
-            // Aquí llamas al mismo sistema de verificación que el slash
             const command = message.client.commands.get('verify');
             if (command) {
-                // Simular una interacción (esto es básico; idealmente deberías reutilizar la lógica)
-                await message.reply('✅ Revisa tus mensajes directos para verificar tu cuenta de Roblox.');
-                // Llamar a la función de verificación enviando DM
-                const user = message.author;
-                const dmChannel = await user.createDM();
-                const verifyModule = require('../commands/moderation/verify');
-                if (verifyModule.sendVerificationDM) {
-                    await verifyModule.sendVerificationDM(user, dmChannel);
-                }
+                // Simular interacción (solo para enviar DM)
+                const fakeInteraction = {
+                    user: message.author,
+                    reply: async (opts) => message.reply(opts.content),
+                    followUp: async (opts) => message.reply(opts.content),
+                    deferReply: async () => {},
+                    editReply: async () => {},
+                    options: { getString: () => null, getUser: () => null }
+                };
+                await command.execute(fakeInteraction);
             } else {
                 await message.reply('❌ El comando /verify no está disponible.');
             }
             await message.delete().catch(() => {});
             return;
         }
-    }
-};
 
         // ====================================
         // PROCESAR RESPUESTA DE VERIFICACIÓN (DM)
-        // ====================================
-        if (message.channel.type === 1) { // DM
-            const { loadCodes, saveCodes, verifyCode } = require('../utils/robloxVerify');
-            let codes = loadCodes();
-            const userData = codes[message.author.id];
-            if (!userData || userData.verified) return;
-
-            const robloxUsername = message.content.trim();
-            if (!robloxUsername) return;
-
-            const isValid = await verifyCode(robloxUsername, userData.code);
-            if (isValid) {
-                userData.verified = true;
-                userData.robloxUser = robloxUsername;
-                saveCodes(codes);
-
-                // Buscar el servidor (guild) donde el usuario necesita ser verificado
-                // Asumimos que el bot está en un solo servidor principal; podrías configurarlo
-                const guild = message.client.guilds.cache.first();
-                if (guild) {
-                    const member = guild.members.cache.get(message.author.id);
-                    if (member) {
-                        // Cambiar apodo a "nombre (@roblox)"
-                        const newNickname = `${member.user.username} (@${robloxUsername})`;
-                        await member.setNickname(newNickname).catch(() => {});
-                        
-                        // Opcional: dar rol de verificado
-                        const config = JSON.parse(fs.readFileSync('./data/config.json'));
-                        if (config.rol_verified) {
-                            const role = guild.roles.cache.get(config.rol_verified);
-                            if (role) await member.roles.add(role);
-                        }
-                    }
-                }
-
-                await message.reply('✅ ¡Verificación exitosa! Tu apodo ha sido actualizado.');
-            } else {
-                await message.reply('❌ No encontré el código en tu descripción de Roblox. Asegúrate de haberlo puesto correctamente y vuelve a enviar tu usuario.');
-            }
-        }
-
-        // ====================================
-        // PROCESAR RESPUESTA DE VERIFICACIÓN (DM)
-        // ====================================
-        if (message.channel.type === 1) { // DM
-            const { loadCodes, saveCodes, verifyCode } = require('../utils/robloxVerify');
-            let codes = loadCodes();
-            const userData = codes[message.author.id];
-            if (!userData || userData.verified) return;
-
-            const robloxUsername = message.content.trim();
-            if (!robloxUsername) return;
-
-            const isValid = await verifyCode(robloxUsername, userData.code);
-            if (isValid) {
-                userData.verified = true;
-                userData.robloxUser = robloxUsername;
-                saveCodes(codes);
-
-                // Buscar el servidor (guild) donde el usuario necesita ser verificado
-                // Asumimos que el bot está en un solo servidor principal; podrías configurarlo
-                const guild = message.client.guilds.cache.first();
-                if (guild) {
-                    const member = guild.members.cache.get(message.author.id);
-                    if (member) {
-                        // Cambiar apodo a "nombre (@roblox)"
-                        const newNickname = `${member.user.username} (@${robloxUsername})`;
-                        await member.setNickname(newNickname).catch(() => {});
-                        
-                        // Opcional: dar rol de verificado
-                        const config = JSON.parse(fs.readFileSync('./data/config.json'));
-                        if (config.rol_verified) {
-                            const role = guild.roles.cache.get(config.rol_verified);
-                            if (role) await member.roles.add(role);
-                        }
-                    }
-                }
-
-                await message.reply('✅ ¡Verificación exitosa! Tu apodo ha sido actualizado.');
-            } else {
-                await message.reply('❌ No encontré el código en tu descripción de Roblox. Asegúrate de haberlo puesto correctamente y vuelve a enviar tu usuario.');
-            }
-        }
-
-        // ====================================
-        // VERIFICACIÓN POR DM (continuación)
         // ====================================
         if (message.channel.type === 1 && !message.author.bot) {
             const { loadCodes, saveCodes, verifyCode } = require('../utils/robloxVerify');
@@ -228,79 +164,31 @@ module.exports = {
                 userData.robloxUser = robloxUsername;
                 saveCodes(codes);
 
-                const guild = message.client.guilds.cache.first(); // O puedes obtener el servidor específico
-                if (guild) {
-                    const member = guild.members.cache.get(message.author.id);
-                    if (member) {
-                        // Cambiar apodo
-                        const newNickname = `${member.user.username} (@${robloxUsername})`;
-                        await member.setNickname(newNickname).catch(() => {});
-
-                        // Asignar rol de verificado si está configurado
-                        let config = {};
-                        if (fs.existsSync('./data/config.json')) {
-                            config = JSON.parse(fs.readFileSync('./data/config.json'));
-                        }
-                        if (config.rol_verified) {
-                            const role = guild.roles.cache.get(config.rol_verified);
-                            if (role) await member.roles.add(role);
-                        }
-                    }
-                }
-
-                await message.reply('✅ ¡Verificación exitosa! Tu apodo ha sido actualizado.');
-            } else {
-                await message.reply('❌ No encontré el código en tu descripción de Roblox. Asegúrate de haberlo puesto correctamente y vuelve a enviar tu usuario.');
-            }
-        }
-
-        // ====================================
-        // VERIFICACIÓN POR DM (RESPUESTA)
-        // ====================================
-        if (message.channel.type === 1 && !message.author.bot) {
-            const { loadCodes, saveCodes, verifyCode } = require('../utils/robloxVerify');
-            let codes = loadCodes();
-            const userData = codes[message.author.id];
-            if (!userData || userData.verified) return;
-
-            const robloxUsername = message.content.trim();
-            if (!robloxUsername) return;
-
-            const isValid = await verifyCode(robloxUsername, userData.code);
-            if (isValid) {
-                userData.verified = true;
-                userData.robloxUser = robloxUsername;
-                saveCodes(codes);
-
-                // Obtener servidor y miembro (asume que el bot está en un servidor principal)
                 const guild = message.client.guilds.cache.first();
                 if (guild) {
                     const member = guild.members.cache.get(message.author.id);
                     if (member) {
-                        // Cambiar apodo
                         const newNickname = `${member.user.username} (@${robloxUsername})`;
                         await member.setNickname(newNickname).catch(() => {});
 
-                        // Cargar configuración de roles de verificación
                         let config = {};
                         if (fs.existsSync('./data/config.json')) {
                             config = JSON.parse(fs.readFileSync('./data/config.json'));
                         }
-                        // Quitar rol "no verificado"
                         if (config.verify && config.verify.noVerificado) {
                             const role = guild.roles.cache.get(config.verify.noVerificado);
                             if (role) await member.roles.remove(role).catch(() => {});
                         }
-                        // Asignar rol "verificado"
                         if (config.verify && config.verify.verificado) {
                             const role = guild.roles.cache.get(config.verify.verificado);
                             if (role) await member.roles.add(role).catch(() => {});
                         }
                     }
                 }
-
-                await message.reply('✅ ¡Verificación exitosa! Tu apodo ha sido actualizado y se te ha asignado el rol correspondiente.');
+                await message.reply('✅ ¡Verificación exitosa! Apodo actualizado y rol asignado.');
             } else {
-                await message.reply('❌ No encontré el código en tu descripción de Roblox. Asegúrate de haberlo puesto correctamente y vuelve a enviar tu usuario.');
+                await message.reply('❌ Código no encontrado. Asegúrate de poner el código en tu descripción de Roblox y vuelve a enviar tu usuario.');
             }
         }
+    }
+};
