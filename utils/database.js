@@ -1,23 +1,7 @@
 const mongoose = require('mongoose');
-
-const ticketSchema = new mongoose.Schema({
-    ticketId: String,
-    category: String,
-    userId: String,
-    userTag: String,
-    channelId: String,
-    status: { type: String, default: 'open' },
-    priority: { type: String, default: 'media' },
-    createdAt: Date,
-    closedAt: Date,
-    closedBy: String,
-    claimedBy: String,
-    claimedAt: Date,
-    rating: Number,
-    duration: Number
-});
-
-const Ticket = mongoose.model('Ticket', ticketSchema);
+const Ticket = require('../models/Ticket');
+const Warn = require('../models/Warn');
+const StaffStat = require('../models/StaffStat');
 
 async function connectDB() {
     try {
@@ -28,4 +12,4 @@ async function connectDB() {
     }
 }
 
-module.exports = { connectDB, Ticket };
+module.exports = { connectDB, Ticket, Warn, StaffStat };
