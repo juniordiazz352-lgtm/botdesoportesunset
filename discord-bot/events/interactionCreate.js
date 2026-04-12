@@ -1,43 +1,65 @@
-/**
- * events/interactionCreate.js
- * Router central de todas las interacciones del bot.
- * Rutas: Slash Commands → Botones → Modals → Select Menus
- */
-
-const { InteractionType } = require('discord.js');
-
-// ── Sub-handlers ─────────────────────────────────────────────
-const handleSlashCommand   = require('../interactions/slashCommand');
-const handleButton         = require('../interactions/buttonHandler');
-const handleModal          = require('../interactions/modalHandler');
-const handleSelectMenu     = require('../interactions/selectMenuHandler');
+const handleSlashCommand = require('../handlers/handleSlashCommand');
+const buttonHandler = require('../interactions/buttonHandler');
+const modalHandler = require('../interactions/modalHandler');
+const selectMenuHandler = require('../interactions/selectMenuHandler');
 
 module.exports = {
-  name: 'interactionCreate',
-  once: false,
+    name: 'interactionCreate',
+    async execute(interaction) {
 
-  async execute(interaction, client) {
-    try {
-      if (interaction.isChatInputCommand()) {
-        return await handleSlashCommand(interaction, client);
-      }
-      if (interaction.isButton()) {
-        return await handleButton(interaction, client);
-      }
-      if (interaction.isModalSubmit()) {
-        return await handleModal(interaction, client);
-      }
-      if (interaction.isStringSelectMenu()) {
-        return await handleSelectMenu(interaction, client);
-      }
-    } catch (error) {
-      console.error('❌ Error en interacción:', error);
-      const errorMsg = { content: '❌ Ocurrió un error al procesar esta acción. Intenta de nuevo.', ephemeral: true };
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp(errorMsg).catch(() => {});
-      } else {
-        await interaction.reply(errorMsg).catch(() => {});
-      }
+        try {
+
+            // ─────────────────────────────
+            // 💬 SLASH COMMANDS
+            // ─────────────────────────────
+            if (interaction.isChatInputCommand()) {
+                return await handleSlashCommand(interaction);
+            }
+
+            // ─────────────────────────────
+            // 🔘 BUTTONS
+            // ─────────────────────────────
+            if (interaction.isButton()) {
+                return await buttonHandler(interaction);
+            }
+
+            // ─────────────────────────────
+            // 📋 SELECT MENUS
+            // ─────────────────────────────
+            if (interaction.isStringSelectMenu()) {
+                return await selectMenuHandler(interaction);
+            }
+
+            // ─────────────────────────────
+            // 📝 MODALS
+            // ─────────────────────────────
+            if (interaction.isModalSubmit()) {
+                return await modalHandler(interaction);
+            }
+
+        } catch (error) {
+            console.error('❌ Error global interactionCreate:', error);
+
+            // 🔥 MANEJO PRO DE ERRORES
+            try {
+                if (interaction.deferred) {
+                    await interaction.editReply({
+                        content: '❌ Error procesando la interacción.'
+                    });
+                } else if (interaction.replied) {
+                    await interaction.followUp({
+                        content: '❌ Error procesando la interacción.',
+                        ephemeral: true
+                    });
+                } else {
+                    await interaction.reply({
+                        content: '❌ Error procesando la interacción.',
+                        ephemeral: true
+                    });
+                }
+            } catch (e) {
+                console.error('❌ Error enviando respuesta de error:', e);
+            }
+        }
     }
-  },
 };
