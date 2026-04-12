@@ -123,3 +123,46 @@ module.exports = {
         }
     }
 };
+
+        // ====================================
+        // PROCESAR RESPUESTA DE VERIFICACIÓN (DM)
+        // ====================================
+        if (message.channel.type === 1) { // DM
+            const { loadCodes, saveCodes, verifyCode } = require('../utils/robloxVerify');
+            let codes = loadCodes();
+            const userData = codes[message.author.id];
+            if (!userData || userData.verified) return;
+
+            const robloxUsername = message.content.trim();
+            if (!robloxUsername) return;
+
+            const isValid = await verifyCode(robloxUsername, userData.code);
+            if (isValid) {
+                userData.verified = true;
+                userData.robloxUser = robloxUsername;
+                saveCodes(codes);
+
+                // Buscar el servidor (guild) donde el usuario necesita ser verificado
+                // Asumimos que el bot está en un solo servidor principal; podrías configurarlo
+                const guild = message.client.guilds.cache.first();
+                if (guild) {
+                    const member = guild.members.cache.get(message.author.id);
+                    if (member) {
+                        // Cambiar apodo a "nombre (@roblox)"
+                        const newNickname = `${member.user.username} (@${robloxUsername})`;
+                        await member.setNickname(newNickname).catch(() => {});
+                        
+                        // Opcional: dar rol de verificado
+                        const config = JSON.parse(fs.readFileSync('./data/config.json'));
+                        if (config.rol_verified) {
+                            const role = guild.roles.cache.get(config.rol_verified);
+                            if (role) await member.roles.add(role);
+                        }
+                    }
+                }
+
+                await message.reply('✅ ¡Verificación exitosa! Tu apodo ha sido actualizado.');
+            } else {
+                await message.reply('❌ No encontré el código en tu descripción de Roblox. Asegúrate de haberlo puesto correctamente y vuelve a enviar tu usuario.');
+            }
+        }
