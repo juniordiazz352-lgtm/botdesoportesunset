@@ -1,4 +1,7 @@
 require('dotenv').config();
+# Agregar al principio del index.js
+const { connectDB } = require('./utils/database');
+connectDB();
 const { Client, GatewayIntentBits, Partials, Collection } = require('discord.js');
 const { loadCommands } = require('./handlers/commandHandler');
 const { loadEvents } = require('./handlers/eventHandler');

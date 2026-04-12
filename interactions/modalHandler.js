@@ -1,24 +1,40 @@
 const { ChannelType, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const fs = require('fs');
 
-// Función para convertir texto a color de botón
+// Contadores por categoría
+let ticketCounters = {};
+
+function loadCounters() {
+    if (fs.existsSync('./data/counters.json')) {
+        ticketCounters = JSON.parse(fs.readFileSync('./data/counters.json'));
+    }
+}
+
+function saveCounters() {
+    fs.writeFileSync('./data/counters.json', JSON.stringify(ticketCounters, null, 2));
+}
+
+function getNextTicketNumber(category) {
+    if (!ticketCounters[category]) ticketCounters[category] = 0;
+    ticketCounters[category]++;
+    saveCounters();
+    return String(ticketCounters[category]).padStart(4, '0');
+}
+
 function getButtonStyle(color) {
     const colors = {
         'primary': ButtonStyle.Primary,
         'secondary': ButtonStyle.Secondary,
         'success': ButtonStyle.Success,
         'danger': ButtonStyle.Danger,
-        'blurple': ButtonStyle.Primary,
-        'gris': ButtonStyle.Secondary,
-        'verde': ButtonStyle.Success,
-        'rojo': ButtonStyle.Danger,
-        'azul': ButtonStyle.Primary
     };
     return colors[color.toLowerCase()] || ButtonStyle.Primary;
 }
 
 module.exports = async (interaction) => {
     try {
+        loadCounters();
+        
         // ============================================
         // 🎨 PANEL DE TICKETS PERSONALIZADO
         // ============================================
@@ -30,12 +46,8 @@ module.exports = async (interaction) => {
             let color = interaction.fields.getTextInputValue('color') || '#5865F2';
             const botonesRaw = interaction.fields.getTextInputValue('botones');
             
-            // Validar color hex
-            if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
-                color = '#5865F2';
-            }
+            if (!/^#[0-9A-Fa-f]{6}$/.test(color)) color = '#5865F2';
             
-            // Procesar botones: formato "nombre|emoji|color"
             const lineas = botonesRaw.split('\n');
             const botones = [];
             
@@ -50,19 +62,13 @@ module.exports = async (interaction) => {
                 }
             }
             
-            if (botones.length === 0) {
-                return interaction.editReply({ content: '❌ Debes especificar al menos un botón' });
-            }
-            
-            // Crear embed
             const embed = new EmbedBuilder()
                 .setTitle(titulo)
                 .setDescription(desc)
                 .setColor(color)
-                .setFooter({ text: `📅 Creado: ${new Date().toLocaleString()}` })
+                .setFooter({ text: `📅 ${new Date().toLocaleString()}` })
                 .setTimestamp();
             
-            // Crear botones
             const row = new ActionRowBuilder();
             
             for (const btn of botones) {
@@ -71,23 +77,17 @@ module.exports = async (interaction) => {
                     .setLabel(btn.nombre)
                     .setStyle(getButtonStyle(btn.color));
                 
-                // Agregar emoji si no es el defecto
-                if (btn.emoji && btn.emoji !== '🎫') {
-                    button.setEmoji(btn.emoji);
-                }
-                
+                if (btn.emoji && btn.emoji !== '🎫') button.setEmoji(btn.emoji);
                 row.addComponents(button);
             }
             
             await interaction.channel.send({ embeds: [embed], components: [row] });
-            await interaction.editReply({ 
-                content: `✅ Panel de tickets creado correctamente\n🎨 Color: ${color}\n🔘 Botones: ${botones.length}` 
-            });
+            await interaction.editReply({ content: `✅ Panel creado con ${botones.length} botones` });
             return;
         }
         
         // ============================================
-        // 🎫 CREAR TICKET
+        // 🎫 CREAR TICKET CON NUMERACIÓN AUTOMÁTICA
         // ============================================
         if (interaction.customId.startsWith('ticket_modal_')) {
             await interaction.deferReply({ ephemeral: true });
@@ -100,92 +100,70 @@ module.exports = async (interaction) => {
             
             const category = interaction.customId.replace('ticket_modal_', '');
             const motivo = interaction.fields.getTextInputValue('motivo');
-            const ticketId = Date.now().toString().slice(-6);
+            const ticketNumber = getNextTicketNumber(category);
+            const ticketId = `${category}-${ticketNumber}`;
             
             const channel = await interaction.guild.channels.create({
-                name: `ticket-${category}-${ticketId}`,
+                name: `ticket-${ticketId}`,
                 type: ChannelType.GuildText,
                 parent: config.categoria_tickets || null,
                 permissionOverwrites: [
-                    {
-                        id: interaction.guild.id,
-                        deny: [PermissionFlagsBits.ViewChannel],
-                    },
-                    {
-                        id: interaction.user.id,
-                        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
-                    },
+                    { id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+                    { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
                 ]
             });
             
             if (config.rol_staff) {
                 await channel.permissionOverwrites.edit(config.rol_staff, {
-                    ViewChannel: true,
-                    SendMessages: true,
-                    ReadMessageHistory: true
+                    ViewChannel: true, SendMessages: true, ReadMessageHistory: true
                 });
             }
             
+            // Guardar información del ticket
+            const ticketsPath = './data/tickets.json';
+            let tickets = {};
+            if (fs.existsSync(ticketsPath)) {
+                tickets = JSON.parse(fs.readFileSync(ticketsPath));
+            }
+            
+            tickets[channel.id] = {
+                id: ticketId,
+                category: category,
+                userId: interaction.user.id,
+                userTag: interaction.user.tag,
+                channelId: channel.id,
+                status: 'open',
+                createdAt: Date.now(),
+                createdAtStr: new Date().toLocaleString(),
+                claimedBy: null,
+                claimedAt: null,
+                closedBy: null,
+                closedAt: null
+            };
+            
+            fs.writeFileSync(ticketsPath, JSON.stringify(tickets, null, 2));
+            
             const embed = new EmbedBuilder()
-                .setTitle(`🎫 Ticket - ${category.toUpperCase()}`)
-                .setDescription(`**Motivo:**\n${motivo}`)
+                .setTitle(`🎫 Ticket ${ticketId}`)
+                .setDescription(`**Categoría:** ${category}\n**Motivo:**\n${motivo}`)
                 .setColor('#5865F2')
                 .setFooter({ text: `ID: ${ticketId} | Usuario: ${interaction.user.tag}` })
                 .setTimestamp();
             
             const row = new ActionRowBuilder().addComponents(
-                new ButtonBuilder()
-                    .setCustomId('ticket_claim')
-                    .setLabel('Reclamar')
-                    .setEmoji('👤')
-                    .setStyle(ButtonStyle.Primary),
-                new ButtonBuilder()
-                    .setCustomId('ticket_close')
-                    .setLabel('Cerrar')
-                    .setEmoji('🔒')
-                    .setStyle(ButtonStyle.Danger)
+                new ButtonBuilder().setCustomId('ticket_claim').setLabel('Reclamar').setEmoji('👤').setStyle(ButtonStyle.Primary),
+                new ButtonBuilder().setCustomId('ticket_close').setLabel('Cerrar').setEmoji('🔒').setStyle(ButtonStyle.Danger),
+                new ButtonBuilder().setCustomId('ticket_transcript').setLabel('Transcript').setEmoji('📄').setStyle(ButtonStyle.Secondary)
             );
             
-            await channel.send({
-                content: `<@${interaction.user.id}>`,
-                embeds: [embed],
-                components: [row]
-            });
-            
-            await interaction.editReply({ content: `✅ Ticket creado: ${channel}` });
+            await channel.send({ content: `<@${interaction.user.id}>`, embeds: [embed], components: [row] });
+            await interaction.editReply({ content: `✅ Ticket ${ticketId} creado: ${channel}` });
             return;
         }
-        
-        // ============================================
-        // 📝 CREAR FORMULARIO
-        // ============================================
-        if (interaction.customId === 'crear_form_modal') {
-            const nombre = interaction.fields.getTextInputValue('nombre');
-            const formsPath = './data/forms.json';
-            let forms = {};
-            if (fs.existsSync(formsPath)) {
-                forms = JSON.parse(fs.readFileSync(formsPath));
-            }
-            
-            forms[nombre] = {
-                nombre: nombre,
-                creadoPor: interaction.user.id,
-                creadoEn: Date.now()
-            };
-            
-            fs.writeFileSync(formsPath, JSON.stringify(forms, null, 2));
-            
-            await interaction.reply({ 
-                content: `✅ Formulario "${nombre}" creado correctamente.`,
-                ephemeral: true 
-            });
-            return;
-        }
-        
     } catch (error) {
-        console.error('❌ Error en modalHandler:', error);
+        console.error('❌ Error:', error);
         if (!interaction.replied && !interaction.deferred) {
-            await interaction.reply({ content: '❌ Error al procesar el formulario', ephemeral: true });
+            await interaction.reply({ content: '❌ Error', ephemeral: true });
         }
     }
 };
