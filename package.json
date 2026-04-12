@@ -1,6 +1,6 @@
 {
   "name": "discord-support-bot",
-  "version": "1.0.0",
+  "version": "2.0.0-1775963142",
   "description": "Bot de soporte con tickets",
   "main": "index.js",
   "scripts": {
