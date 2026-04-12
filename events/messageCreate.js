@@ -7,10 +7,12 @@ module.exports = {
     async execute(message) {
         if (message.author.bot) return;
 
+        // ========== COMANDOS CON PREFIJO ! ==========
+
         // !say
         if (message.content.startsWith('!say')) {
             const text = message.content.slice(5).trim();
-            if (!text) return message.reply('❌ Escribe algo');
+            if (!text) return message.reply('❌ Escribe algo después de !say');
             await message.channel.send(text);
             await message.delete().catch(() => {});
             return;
@@ -19,10 +21,21 @@ module.exports = {
         // !embed
         if (message.content.startsWith('!embed')) {
             const content = message.content.slice(7).trim();
-            const sep = content.indexOf('|');
-            let title = sep === -1 ? '📢 Anuncio' : content.slice(0, sep).trim();
-            let desc = sep === -1 ? content : content.slice(sep + 1).trim();
-            const embed = new EmbedBuilder().setTitle(title).setDescription(desc).setColor('#5865F2').setFooter({ text: `Creado por ${message.author.tag}` }).setTimestamp();
+            const separatorIndex = content.indexOf('|');
+            let title, description;
+            if (separatorIndex === -1) {
+                title = '📢 Anuncio';
+                description = content;
+            } else {
+                title = content.slice(0, separatorIndex).trim();
+                description = content.slice(separatorIndex + 1).trim();
+            }
+            const embed = new EmbedBuilder()
+                .setTitle(title || '📢 Anuncio')
+                .setDescription(description || 'Sin descripción')
+                .setColor('#5865F2')
+                .setFooter({ text: `Creado por ${message.author.tag}` })
+                .setTimestamp();
             await message.channel.send({ embeds: [embed] });
             await message.delete().catch(() => {});
             return;
@@ -30,14 +43,26 @@ module.exports = {
 
         // !ping
         if (message.content === '!ping') {
-            await message.reply(`🏓 Pong! ${Math.round(message.client.ws.ping)}ms`);
+            const ping = Math.round(message.client.ws.ping);
+            await message.reply(`🏓 Pong! Latencia: ${ping}ms`);
             await message.delete().catch(() => {});
             return;
         }
 
         // !info
         if (message.content === '!info') {
-            const embed = new EmbedBuilder().setTitle('🤖 Info').setDescription('Bot de soporte').setColor('#00ff00').addFields({ name: 'Ping', value: `${Math.round(message.client.ws.ping)}ms` });
+            const embed = new EmbedBuilder()
+                .setTitle('🤖 Información del Bot')
+                .setDescription('Bot de soporte profesional con tickets, verificación Roblox y bienvenidas')
+                .setColor('#00ff00')
+                .addFields(
+                    { name: '📡 Ping', value: `${Math.round(message.client.ws.ping)}ms`, inline: true },
+                    { name: '💾 Memoria', value: `${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)} MB`, inline: true },
+                    { name: '📅 Uptime', value: `${Math.floor(process.uptime() / 3600)}h ${Math.floor((process.uptime() % 3600) / 60)}m`, inline: true },
+                    { name: '📚 Comandos', value: `${message.client.commands.size}`, inline: true }
+                )
+                .setFooter({ text: 'Bot de Soporte PRO' })
+                .setTimestamp();
             await message.channel.send({ embeds: [embed] });
             await message.delete().catch(() => {});
             return;
@@ -49,12 +74,19 @@ module.exports = {
             if (fs.existsSync(ticketsPath)) {
                 const tickets = JSON.parse(fs.readFileSync(ticketsPath));
                 const userTickets = Object.values(tickets).filter(t => t.userId === message.author.id && t.status !== 'closed');
-                if (!userTickets.length) return message.reply('📭 No tienes tickets abiertos');
-                const embed = new EmbedBuilder().setTitle('🎫 Tus Tickets').setColor('#5865F2');
-                userTickets.forEach(t => embed.addFields({ name: t.category, value: `ID: ${t.id}\nCanal: <#${t.channelId}>` }));
-                await message.channel.send({ embeds: [embed] });
+                if (userTickets.length === 0) {
+                    await message.reply('📭 No tienes tickets abiertos');
+                } else {
+                    const embed = new EmbedBuilder()
+                        .setTitle('🎫 Tus Tickets Abiertos')
+                        .setColor('#5865F2');
+                    userTickets.forEach(t => {
+                        embed.addFields({ name: t.category || 'Ticket', value: `ID: ${t.id}\nCanal: <#${t.channelId}>`, inline: true });
+                    });
+                    await message.channel.send({ embeds: [embed] });
+                }
             } else {
-                await message.reply('📭 No hay tickets');
+                await message.reply('📭 No hay tickets registrados');
             }
             await message.delete().catch(() => {});
             return;
@@ -63,9 +95,17 @@ module.exports = {
         // !purge (solo staff)
         if (message.content.startsWith('!purge')) {
             let config = {};
-            if (fs.existsSync('./data/config.json')) config = JSON.parse(fs.readFileSync('./data/config.json'));
-            if (!message.member.roles.cache.has(config.rol_staff)) return message.reply('❌ No tienes permiso');
-            const amount = Math.min(100, parseInt(message.content.split(' ')[1]) || 10);
+            if (fs.existsSync('./data/config.json')) {
+                config = JSON.parse(fs.readFileSync('./data/config.json'));
+            }
+            const isStaff = message.member.roles.cache.has(config.rol_staff);
+            if (!isStaff) {
+                return message.reply('❌ No tienes permiso.').then(m => setTimeout(() => m.delete(), 3000));
+            }
+            const args = message.content.split(' ');
+            let amount = parseInt(args[1]);
+            if (isNaN(amount) || amount < 1) amount = 10;
+            if (amount > 100) amount = 100;
             const fetched = await message.channel.messages.fetch({ limit: amount });
             await message.channel.bulkDelete(fetched, true);
             const msg = await message.channel.send(`🗑️ Se borraron ${fetched.size} mensajes.`);
@@ -79,54 +119,68 @@ module.exports = {
             const code = getOrCreateCode(message.author.id);
             const embed = new EmbedBuilder()
                 .setTitle('🔐 Verificación Roblox')
-                .setDescription(`**Tu código:** \`${code}\`\n\nPonlo en tu descripción de Roblox y luego **responde a este mensaje** con tu usuario.\n⏰ Tienes 10 minutos.`)
+                .setDescription(`**Tu código único:** \`${code}\`\n\n📝 **Instrucciones:**\n1. Copia este código.\n2. Ve a tu perfil de Roblox y pégalo en tu **descripción**.\n3. Luego **responde a este mensaje** con tu nombre de usuario de Roblox.\n\n⏰ **Tienes 10 minutos** para completar el proceso. Si expira, deberás usar !verify nuevamente.`)
                 .setColor('#00ff00');
             try {
                 const dm = await message.author.createDM();
                 await dm.send({ embeds: [embed] });
                 await message.reply('✅ Revisa tus mensajes directos.');
             } catch (err) {
-                await message.reply('❌ No pude enviarte DM.');
+                console.error(err);
+                await message.reply('❌ No pude enviarte DM. Habilita los mensajes directos.');
             }
             await message.delete().catch(() => {});
             return;
         }
 
-        // PROCESAR RESPUESTA EN DM (verificación)
+        // ========== PROCESAR RESPUESTA EN DM (VERIFICACIÓN) ==========
         if (message.channel.type === 1 && !message.author.bot) {
-            const codes = require('../utils/robloxVerify').loadCodes();
+            const codes = require('../utils/robloxVerify').loadCodes?.() || {};
             const userData = codes[message.author.id];
             if (!userData || userData.verified) return;
 
-            if (Date.now() - userData.createdAt > 10 * 60 * 1000) {
-                await message.reply('❌ Código expirado. Ejecuta `!verify` de nuevo.');
+            // Verificar expiración
+            const now = Date.now();
+            if ((now - userData.createdAt) > 10 * 60 * 1000) {
+                await message.reply('❌ Tu código ha expirado. Por favor, ejecuta `/verify` o `!verify` nuevamente para obtener un código nuevo.');
                 return;
             }
 
-            const robloxUser = message.content.trim();
-            if (!robloxUser) return;
+            const robloxUsername = message.content.trim();
+            if (!robloxUsername) return;
 
-            const isValid = await verifyCode(robloxUser, userData.code);
+            const isValid = await verifyCode(robloxUsername, userData.code);
             if (isValid) {
-                markVerified(message.author.id, robloxUser);
+                markVerified(message.author.id, robloxUsername);
+
+                // Obtener el servidor (asume que el bot está en un solo servidor)
                 const guild = message.client.guilds.cache.first();
-                const member = guild?.members.cache.get(message.author.id);
-                if (member) {
-                    await member.setNickname(`${member.user.username} (@${robloxUser})`).catch(() => {});
-                    let config = {};
-                    if (fs.existsSync('./data/config.json')) config = JSON.parse(fs.readFileSync('./data/config.json'));
-                    if (config.verify?.noVerificado) {
-                        const role = guild.roles.cache.get(config.verify.noVerificado);
-                        if (role) await member.roles.remove(role);
-                    }
-                    if (config.verify?.verificado) {
-                        const role = guild.roles.cache.get(config.verify.verificado);
-                        if (role) await member.roles.add(role);
+                if (guild) {
+                    const member = guild.members.cache.get(message.author.id);
+                    if (member) {
+                        const newNickname = `${member.user.username} (@${robloxUsername})`;
+                        await member.setNickname(newNickname).catch(() => {});
+
+                        // Cargar configuración para roles de verificación
+                        let config = {};
+                        if (fs.existsSync('./data/config.json')) {
+                            config = JSON.parse(fs.readFileSync('./data/config.json'));
+                        }
+                        // Quitar rol "no verificado" si existe
+                        if (config.verify && config.verify.noVerificado) {
+                            const role = guild.roles.cache.get(config.verify.noVerificado);
+                            if (role) await member.roles.remove(role).catch(() => {});
+                        }
+                        // Asignar rol "verificado" si existe
+                        if (config.verify && config.verify.verificado) {
+                            const role = guild.roles.cache.get(config.verify.verificado);
+                            if (role) await member.roles.add(role).catch(() => {});
+                        }
                     }
                 }
-                await message.reply('✅ ¡Verificación exitosa! Apodo actualizado.');
+                await message.reply('✅ ¡Verificación exitosa! Tu apodo ha sido actualizado y se te han asignado los roles correspondientes.');
             } else {
-                await message.reply('❌ Código no encontrado en tu descripción de Roblox. Revisa y vuelve a enviar tu usuario.');
+                await message.reply('❌ No encontré el código en tu descripción de Roblox. Asegúrate de haberlo puesto correctamente y vuelve a enviar tu usuario.');
             }
         }
     }
