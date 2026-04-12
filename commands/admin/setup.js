@@ -12,39 +12,47 @@ module.exports = {
         .addRoleOption(opt => opt.setName('verified').setDescription('Rol para usuarios verificados').setRequired(false)),
 
     async execute(interaction) {
-        const logs = interaction.options.getChannel('logs');
-        const staff = interaction.options.getRole('staff');
-        const categoriaId = interaction.options.getString('categoria');
-        const feedback = interaction.options.getChannel('feedback');
-        const verified = interaction.options.getRole('verified');
+        try {
+            const logs = interaction.options.getChannel('logs');
+            const staff = interaction.options.getRole('staff');
+            const categoriaId = interaction.options.getString('categoria');
+            const feedback = interaction.options.getChannel('feedback');
+            const verified = interaction.options.getRole('verified');
 
-        // Validar que la categoría exista
-        const categoria = interaction.guild.channels.cache.get(categoriaId);
-        if (!categoria || categoria.type !== 4) {
-            return interaction.reply({ content: '❌ ID de categoría inválido o no existe.', ephemeral: true });
+            // Validar categoría
+            const categoria = interaction.guild.channels.cache.get(categoriaId);
+            if (!categoria || categoria.type !== 4) {
+                return interaction.reply({ content: '❌ ID de categoría inválido. Asegúrate de copiar el ID numérico correcto.', ephemeral: true });
+            }
+
+            // Crear objeto de configuración
+            const config = {
+                canal_logs: logs.id,
+                rol_staff: staff.id,
+                categoria_tickets: categoria.id,
+                canal_feedback: feedback.id,
+                rol_verified: verified ? verified.id : null
+            };
+
+            // Guardar en data/config.json (crear carpeta si no existe)
+            if (!fs.existsSync('./data')) fs.mkdirSync('./data');
+            fs.writeFileSync('./data/config.json', JSON.stringify(config, null, 2));
+
+            const embed = new EmbedBuilder()
+                .setTitle('✅ Configuración Guardada')
+                .setColor('#00ff00')
+                .addFields(
+                    { name: '📋 Logs', value: `${logs}`, inline: true },
+                    { name: '👥 Staff', value: `${staff}`, inline: true },
+                    { name: '📁 Categoría', value: `${categoria.name} (ID: ${categoria.id})`, inline: true },
+                    { name: '⭐ Feedback', value: `${feedback}`, inline: true },
+                    { name: '✅ Verificado', value: verified ? `${verified}` : 'No configurado', inline: true }
+                );
+
+            await interaction.reply({ embeds: [embed], ephemeral: true });
+        } catch (error) {
+            console.error('Error en setup:', error);
+            await interaction.reply({ content: '❌ Error al guardar la configuración. Revisa los permisos del bot.', ephemeral: true });
         }
-
-        const config = { 
-            canal_logs: logs.id, 
-            rol_staff: staff.id, 
-            categoria_tickets: categoria.id,
-            canal_feedback: feedback.id,
-            rol_verified: verified ? verified.id : null
-        };
-        
-        fs.writeFileSync('./data/config.json', JSON.stringify(config, null, 2));
-        
-        const embed = new EmbedBuilder()
-            .setTitle('✅ Configuración Guardada')
-            .setColor('#00ff00')
-            .addFields(
-                { name: '📋 Logs', value: `${logs}`, inline: true },
-                { name: '👥 Staff', value: `${staff}`, inline: true },
-                { name: '📁 Categoría', value: `${categoria.name} (ID: ${categoria.id})`, inline: true },
-                { name: '⭐ Feedback', value: `${feedback}`, inline: true },
-                { name: '✅ Verificado', value: verified ? `${verified}` : 'No configurado', inline: true }
-            );
-        
-        await interaction.reply({ embeds: [embed], ephemeral: true });
     }
 };
