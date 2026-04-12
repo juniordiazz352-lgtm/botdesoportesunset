@@ -163,6 +163,17 @@ module.exports = {
                 userData.verified = true;
                 userData.robloxUser = robloxUsername;
                 saveCodes(codes);
+                // Guardar tambien en users.json
+                const usersPath = './data/users.json';
+                let users = {};
+                if (fs.existsSync(usersPath)) {
+                    users = JSON.parse(fs.readFileSync(usersPath));
+                }
+                users[message.author.id] = {
+                    roblox: robloxUsername,
+                    updatedAt: Date.now()
+                };
+                fs.writeFileSync(usersPath, JSON.stringify(users, null, 2));
 
                 const guild = message.client.guilds.cache.first();
                 if (guild) {
