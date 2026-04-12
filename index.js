@@ -1,11 +1,16 @@
 require('dotenv').config();
-# Agregar al principio del index.js
-const { connectDB } = require('./utils/database');
-connectDB();
 const { Client, GatewayIntentBits, Partials, Collection } = require('discord.js');
 const { loadCommands } = require('./handlers/commandHandler');
 const { loadEvents } = require('./handlers/eventHandler');
 const http = require('http');
+
+// Conectar a MongoDB (opcional, si no usas MongoDB, ignora)
+try {
+    const { connectDB } = require('./utils/database');
+    connectDB();
+} catch (e) {
+    console.log('⚠️ MongoDB no configurado, usando solo JSON');
+}
 
 const PORT = process.env.PORT || 3000;
 
@@ -40,7 +45,7 @@ loadCommands(client);
 loadEvents(client);
 
 client.login(process.env.DISCORD_TOKEN).catch(err => {
-    console.error('❌ Error:', err);
+    console.error('❌ Error login:', err);
     process.exit(1);
 });
 
