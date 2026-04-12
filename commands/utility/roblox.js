@@ -1,54 +1,35 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const fs = require('fs');
 
-const usersPath = './data/users.json';
+const dataPath = './data/robloxUsers.json';
 
 function loadUsers() {
-    if (!fs.existsSync(usersPath)) return {};
-    return JSON.parse(fs.readFileSync(usersPath));
+    if (!fs.existsSync(dataPath)) return {};
+    return JSON.parse(fs.readFileSync(dataPath));
 }
 
 function saveUsers(users) {
-    fs.writeFileSync(usersPath, JSON.stringify(users, null, 2));
+    fs.writeFileSync(dataPath, JSON.stringify(users, null, 2));
 }
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('roblox')
-        .setDescription('Ver o establecer tu nombre de usuario de Roblox')
-        .addSubcommand(sub => sub
-            .setName('set')
-            .setDescription('Establece tu usuario de Roblox')
-            .addStringOption(opt => opt.setName('usuario').setDescription('Tu nombre de usuario de Roblox').setRequired(true)))
-        .addSubcommand(sub => sub
-            .setName('get')
-            .setDescription('Ver el Roblox de un usuario')
-            .addUserOption(opt => opt.setName('usuario').setDescription('Usuario a consultar').setRequired(false))),
+        .setDescription('Asocia tu cuenta de Roblox a tu perfil')
+        .addStringOption(opt => opt.setName('usuario').setDescription('Tu nombre de usuario de Roblox').setRequired(true)),
 
     async execute(interaction) {
-        const sub = interaction.options.getSubcommand();
+        const robloxUser = interaction.options.getString('usuario');
+        const userId = interaction.user.id;
+
         const users = loadUsers();
+        users[userId] = robloxUser;
+        saveUsers(users);
 
-        if (sub === 'set') {
-            const robloxUser = interaction.options.getString('usuario');
-            users[interaction.user.id] = {
-                roblox: robloxUser,
-                updatedAt: Date.now()
-            };
-            saveUsers(users);
-            await interaction.reply({ content: `✅ Tu usuario de Roblox ha sido guardado como \`${robloxUser}\`.`, ephemeral: true });
-        }
-
-        else if (sub === 'get') {
-            const targetUser = interaction.options.getUser('usuario') || interaction.user;
-            const data = users[targetUser.id];
-            const robloxName = data ? data.roblox : 'No establecido';
-            const embed = new EmbedBuilder()
-                .setTitle(`🎮 Roblox de ${targetUser.username}`)
-                .setDescription(`**Usuario:** ${robloxName}`)
-                .setColor('#00aaff')
-                .setFooter({ text: data ? `Actualizado: ${new Date(data.updatedAt).toLocaleString()}` : 'Sin registro' });
-            await interaction.reply({ embeds: [embed], ephemeral: false });
-        }
+        const embed = new EmbedBuilder()
+            .setTitle('✅ Cuenta de Roblox asociada')
+            .setDescription(`Tu perfil ahora muestra el usuario: **${robloxUser}**`)
+            .setColor('#00ff00');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
     }
 };
