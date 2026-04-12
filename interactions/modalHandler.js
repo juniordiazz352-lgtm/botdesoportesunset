@@ -3,7 +3,6 @@ const fs = require('fs');
 
 module.exports = async (interaction) => {
     try {
-        // PANEL DE TICKETS
         if (interaction.customId === 'panel_ticket_modal') {
             await interaction.deferReply({ ephemeral: true });
             
@@ -11,28 +10,18 @@ module.exports = async (interaction) => {
             const desc = interaction.fields.getTextInputValue('descripcion');
             const botones = interaction.fields.getTextInputValue('botones').split(',').map(b => b.trim());
             
-            const embed = new EmbedBuilder()
-                .setTitle(titulo)
-                .setDescription(desc)
-                .setColor('#5865F2');
-            
+            const embed = new EmbedBuilder().setTitle(titulo).setDescription(desc).setColor('#5865F2');
             const row = new ActionRowBuilder();
             
             botones.forEach(b => {
-                row.addComponents(
-                    new ButtonBuilder()
-                        .setCustomId(`create_ticket_${b}`)
-                        .setLabel(b.charAt(0).toUpperCase() + b.slice(1))
-                        .setStyle(ButtonStyle.Primary)
-                );
+                row.addComponents(new ButtonBuilder().setCustomId(`create_ticket_${b}`).setLabel(b.charAt(0).toUpperCase() + b.slice(1)).setStyle(ButtonStyle.Primary));
             });
             
             await interaction.channel.send({ embeds: [embed], components: [row] });
-            await interaction.editReply({ content: '✅ Panel de tickets creado correctamente' });
+            await interaction.editReply({ content: '✅ Panel de tickets creado' });
             return;
         }
         
-        // CREAR TICKET
         if (interaction.customId.startsWith('ticket_modal_')) {
             await interaction.deferReply({ ephemeral: true });
             
@@ -51,22 +40,14 @@ module.exports = async (interaction) => {
                 type: ChannelType.GuildText,
                 parent: config.categoria_tickets || null,
                 permissionOverwrites: [
-                    {
-                        id: interaction.guild.id,
-                        deny: [PermissionFlagsBits.ViewChannel],
-                    },
-                    {
-                        id: interaction.user.id,
-                        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
-                    },
+                    { id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+                    { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
                 ]
             });
             
             if (config.rol_staff) {
                 await channel.permissionOverwrites.edit(config.rol_staff, {
-                    ViewChannel: true,
-                    SendMessages: true,
-                    ReadMessageHistory: true
+                    ViewChannel: true, SendMessages: true, ReadMessageHistory: true
                 });
             }
             
@@ -78,55 +59,32 @@ module.exports = async (interaction) => {
                 .setTimestamp();
             
             const row = new ActionRowBuilder().addComponents(
-                new ButtonBuilder()
-                    .setCustomId('ticket_claim')
-                    .setLabel('👤 Reclamar')
-                    .setStyle(ButtonStyle.Primary),
-                new ButtonBuilder()
-                    .setCustomId('ticket_close')
-                    .setLabel('🔒 Cerrar')
-                    .setStyle(ButtonStyle.Danger)
+                new ButtonBuilder().setCustomId('ticket_claim').setLabel('👤 Reclamar').setStyle(ButtonStyle.Primary),
+                new ButtonBuilder().setCustomId('ticket_close').setLabel('🔒 Cerrar').setStyle(ButtonStyle.Danger)
             );
             
-            await channel.send({
-                content: `<@${interaction.user.id}>`,
-                embeds: [embed],
-                components: [row]
-            });
-            
+            await channel.send({ content: `<@${interaction.user.id}>`, embeds: [embed], components: [row] });
             await interaction.editReply({ content: `✅ Ticket creado: ${channel}` });
             return;
         }
         
-        // CREAR FORMULARIO
         if (interaction.customId === 'crear_form_modal') {
             const nombre = interaction.fields.getTextInputValue('nombre');
-            
             const formsPath = './data/forms.json';
             let forms = {};
-            if (fs.existsSync(formsPath)) {
-                forms = JSON.parse(fs.readFileSync(formsPath));
-            }
+            if (fs.existsSync(formsPath)) forms = JSON.parse(fs.readFileSync(formsPath));
             
-            forms[nombre] = {
-                nombre: nombre,
-                creadoPor: interaction.user.id,
-                creadoEn: Date.now()
-            };
-            
+            forms[nombre] = { nombre: nombre, creadoPor: interaction.user.id, creadoEn: Date.now() };
             fs.writeFileSync(formsPath, JSON.stringify(forms, null, 2));
             
-            await interaction.reply({ 
-                content: `✅ Formulario "${nombre}" creado correctamente.\nUsa /crear-panel-form para mostrarlo.`,
-                ephemeral: true 
-            });
+            await interaction.reply({ content: `✅ Formulario "${nombre}" creado.`, ephemeral: true });
             return;
         }
         
     } catch (error) {
         console.error('❌ Error en modalHandler:', error);
         if (!interaction.replied && !interaction.deferred) {
-            await interaction.reply({ content: '❌ Error al procesar el formulario', ephemeral: true });
+            await interaction.reply({ content: '❌ Error al procesar', ephemeral: true });
         }
     }
 };
