@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Ticket = require('../models/Ticket');
 const Warn = require('../models/Warn');
 const StaffStat = require('../models/StaffStat');
+const Verification = require('../models/Verification');
 
 async function connectDB() {
     try {
@@ -12,4 +13,4 @@ async function connectDB() {
     }
 }
 
-module.exports = { connectDB, Ticket, Warn, StaffStat };
+module.exports = { connectDB, Ticket, Warn, StaffStat, Verification };

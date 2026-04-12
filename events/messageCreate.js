@@ -101,3 +101,44 @@ module.exports = {
         // Puedes agregar aquí más comandos (ej. !adduser, !removeuser, etc.)
     }
 };
+
+// !verify
+if (message.content === '!verify') {
+    // Reutilizar la misma lógica que /verify pero sin responder con ephemeral
+    const crypto = require('crypto');
+    const code = crypto.randomBytes(4).toString('hex').toUpperCase();
+    const dmEmbed = new EmbedBuilder()
+        .setTitle('🔐 Verificación de Roblox')
+        .setDescription(`**Instrucciones:**\n1. Cambia tu descripción de perfil de Roblox a:\`${code}\`\n2. Luego responde a este mensaje con tu nombre de usuario de Roblox.\n\n⚠️ El código expira en 10 minutos.`)
+        .setColor('#5865F2');
+    await message.author.send({ embeds: [dmEmbed] }).catch(() => {
+        return message.reply('❌ No puedo enviarte DM. Habilita tus mensajes directos.');
+    });
+    if (!global.verifyCodes) global.verifyCodes = new Map();
+    global.verifyCodes.set(message.author.id, { code, expires: Date.now() + 600000, guildId: message.guild.id });
+    const filter = m => m.author.id === message.author.id;
+    const collector = message.author.dmChannel?.createMessageCollector({ filter, time: 600000, max: 1 });
+    if (!collector) return;
+    collector.on('collect', async (msg) => {
+        const robloxUser = msg.content.trim();
+        const data = global.verifyCodes.get(message.author.id);
+        if (!data || Date.now() > data.expires) {
+            await message.author.send('❌ El código ha expirado. Usa !verify nuevamente.');
+            return;
+        }
+        // Simular verificación exitosa
+        const { Verification } = require('../utils/database');
+        await Verification.findOneAndUpdate(
+            { userId: message.author.id, guildId: message.guild.id },
+            { robloxUser, code: data.code, verified: true, verifiedAt: new Date() },
+            { upsert: true }
+        );
+        const member = message.guild.members.cache.get(message.author.id);
+        const newNickname = `${member.user.username} (@${robloxUser})`;
+        await member.setNickname(newNickname).catch(e => console.error(e));
+        await message.author.send(`✅ ¡Verificado! Tu apodo ha sido cambiado a \`${newNickname}\`.`);
+        global.verifyCodes.delete(message.author.id);
+    });
+    await message.delete().catch(() => {});
+    return;
+}
