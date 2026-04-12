@@ -6,7 +6,9 @@ module.exports = {
         .setName('setup-welcome')
         .setDescription('Configurar bienvenida')
         .addChannelOption(opt => opt.setName('canal').setDescription('Canal de bienvenidas').setRequired(true))
-        .addStringOption(opt => opt.setName('mensaje').setDescription('Mensaje (usa {user})').setRequired(true))
+        .addStringOption(opt => opt.setName('mensaje')
+            .setDescription('Mensaje (usa {user} para mencionar, {server} para el nombre del servidor)')
+            .setRequired(true))
         .addStringOption(opt => opt.setName('roles').setDescription('IDs o menciones de roles (separados por espacio)').setRequired(false))
         .addStringOption(opt => opt.setName('imagen').setDescription('URL de imagen de fondo').setRequired(false)),
 
@@ -29,7 +31,7 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setTitle('✅ Bienvenida configurada')
-            .setDescription(`Canal: ${canal}\nRoles: ${roleIds.map(id => `<@&${id}>`).join(', ') || 'Ninguno'}\nImagen: ${imagen || 'Por defecto'}`)
+            .setDescription(`Canal: ${canal}\nMensaje: ${mensaje}\nRoles: ${roleIds.map(id => `<@&${id}>`).join(', ') || 'Ninguno'}\nImagen: ${imagen || 'Por defecto'}`)
             .setColor('#00ff00');
         await interaction.reply({ embeds: [embed], ephemeral: true });
     }

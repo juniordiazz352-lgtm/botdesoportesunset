@@ -19,7 +19,11 @@ module.exports = {
         // Enviar embed al canal
         const channel = member.guild.channels.cache.get(config.welcome.canal);
         if (channel) {
-            let mensaje = config.welcome.mensaje.replace(/{user}/g, `<@${member.id}>`);
+            let mensaje = config.welcome.mensaje
+                .replace(/{user}/g, `<@${member.id}>`)
+                .replace(/{server}/g, member.guild.name)
+                .replace(/{guild}/g, member.guild.name);
+            
             const embed = new EmbedBuilder()
                 .setTitle('🎉 ¡Bienvenido!')
                 .setDescription(mensaje)
