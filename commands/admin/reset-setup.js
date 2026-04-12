@@ -5,24 +5,24 @@ const path = require('path');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('reset-setup')
-        .setDescription('⚠️ ELIMINA TODA la configuración y datos del bot (tickets, warns, verificación, etc.)')
+        .setDescription('⚠️ ELIMINA TODA la configuración y datos del bot (solo el dueño)')
         .addBooleanOption(opt => opt.setName('confirmar').setDescription('Escribe true para confirmar el reseteo completo').setRequired(true)),
 
     async execute(interaction) {
+        // Verificar que el usuario sea el dueño (OWNER_ID definido en .env)
+        const ownerId = process.env.OWNER_ID;
+        if (!ownerId) {
+            // Si no está definido, solo administradores (por seguridad)
+            if (!interaction.member.permissions.has('Administrator')) {
+                return interaction.reply({ content: '❌ No tienes permiso. Contacta al dueño del bot.', ephemeral: true });
+            }
+        } else if (interaction.user.id !== ownerId) {
+            return interaction.reply({ content: '❌ Solo el dueño del bot puede usar este comando.', ephemeral: true });
+        }
+
         const confirm = interaction.options.getBoolean('confirmar');
         if (!confirm) {
             return interaction.reply({ content: '❌ Operación cancelada. No se eliminó nada.', ephemeral: true });
-        }
-
-        // Verificar permisos: solo staff con rol o administrador
-        let config = {};
-        if (fs.existsSync('./data/config.json')) {
-            config = JSON.parse(fs.readFileSync('./data/config.json'));
-        }
-        const isStaff = config.rol_staff && interaction.member.roles.cache.has(config.rol_staff);
-        const isAdmin = interaction.member.permissions.has('Administrator');
-        if (!isStaff && !isAdmin) {
-            return interaction.reply({ content: '❌ No tienes permiso para usar este comando.', ephemeral: true });
         }
 
         // Lista de archivos a eliminar (todos los datos del bot)
@@ -51,9 +51,6 @@ module.exports = {
             }
         }
 
-        // Opcional: también podrías limpiar la carpeta de transcripciones si existe
-        // fs.rmSync('./data/transcripts', { recursive: true, force: true });
-
         const embed = new EmbedBuilder()
             .setTitle('🔄 Reseteo completo del bot')
             .setDescription(`Se han eliminado ${deleted.length} archivos de datos.`)
@@ -64,8 +61,5 @@ module.exports = {
             .setColor('#ff0000')
             .setFooter({ text: 'El bot está en su estado original. Usa /setup nuevamente para configurarlo.' });
         await interaction.reply({ embeds: [embed], ephemeral: true });
-
-        // Opcional: Reiniciar el bot (pero en Render lo hará automáticamente si se cae, mejor no forzar)
-        // process.exit(0);
     }
 };
