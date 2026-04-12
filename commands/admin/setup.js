@@ -18,7 +18,7 @@ module.exports = {
         const feedback = interaction.options.getChannel('feedback');
         const verified = interaction.options.getRole('verified');
 
-        // Validar que el ID de categoría sea un número y exista
+        // Validar que la categoría exista
         const categoria = interaction.guild.channels.cache.get(categoriaId);
         if (!categoria || categoria.type !== 4) {
             return interaction.reply({ content: '❌ ID de categoría inválido o no existe.', ephemeral: true });
