@@ -3,30 +3,21 @@ const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, Act
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('crear-form')
-        .setDescription('Crear un formulario con preguntas personalizadas'),
+        .setDescription('Crear un formulario'),
 
     async execute(interaction) {
         const modal = new ModalBuilder()
             .setCustomId('crear_form_modal')
             .setTitle('Crear Formulario');
-
+        
         const nombreInput = new TextInputBuilder()
             .setCustomId('nombre')
             .setLabel('Nombre del formulario')
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
-
-        const preguntasInput = new TextInputBuilder()
-            .setCustomId('preguntas')
-            .setLabel('Preguntas (una por línea)')
-            .setStyle(TextInputStyle.Paragraph)
-            .setRequired(true);
-
-        modal.addComponents(
-            new ActionRowBuilder().addComponents(nombreInput),
-            new ActionRowBuilder().addComponents(preguntasInput)
-        );
-
+        
+        modal.addComponents(new ActionRowBuilder().addComponents(nombreInput));
+        
         await interaction.showModal(modal);
     }
 };
