@@ -29,6 +29,7 @@ module.exports = async (interaction) => {
             
             await interaction.channel.send({ embeds: [embed], components: [row] });
             await interaction.editReply({ content: '✅ Panel de tickets creado correctamente' });
+            return;
         }
         
         // CREAR TICKET
@@ -61,7 +62,6 @@ module.exports = async (interaction) => {
                 ]
             });
             
-            // Agregar staff si existe en config
             if (config.rol_staff) {
                 await channel.permissionOverwrites.edit(config.rol_staff, {
                     ViewChannel: true,
@@ -95,13 +95,13 @@ module.exports = async (interaction) => {
             });
             
             await interaction.editReply({ content: `✅ Ticket creado: ${channel}` });
+            return;
         }
         
         // CREAR FORMULARIO
         if (interaction.customId === 'crear_form_modal') {
             const nombre = interaction.fields.getTextInputValue('nombre');
             
-            // Guardar formulario
             const formsPath = './data/forms.json';
             let forms = {};
             if (fs.existsSync(formsPath)) {
@@ -120,7 +120,9 @@ module.exports = async (interaction) => {
                 content: `✅ Formulario "${nombre}" creado correctamente.\nUsa /crear-panel-form para mostrarlo.`,
                 ephemeral: true 
             });
+            return;
         }
+        
     } catch (error) {
         console.error('❌ Error en modalHandler:', error);
         if (!interaction.replied && !interaction.deferred) {
