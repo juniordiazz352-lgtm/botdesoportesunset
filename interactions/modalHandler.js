@@ -195,3 +195,55 @@ module.exports = async (interaction) => {
         }
     }
 };
+
+        // ============================================
+        // PANEL DE FORMULARIOS PERSONALIZADO
+        // ============================================
+        if (interaction.customId === 'panel_form_selector') {
+            const raw = interaction.fields.getTextInputValue('form_list');
+            // Separar por comas y limpiar espacios
+            let selectedNames = raw.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            // Eliminar duplicados
+            selectedNames = [...new Set(selectedNames)];
+
+            const formsPath = './data/forms.json';
+            if (!fs.existsSync(formsPath)) {
+                return interaction.reply({ content: '❌ No hay formularios.', ephemeral: true });
+            }
+            const forms = JSON.parse(fs.readFileSync(formsPath));
+            const existingNames = Object.keys(forms);
+            const validNames = selectedNames.filter(name => existingNames.includes(name));
+            const invalidNames = selectedNames.filter(name => !existingNames.includes(name));
+
+            if (validNames.length === 0) {
+                return interaction.reply({ content: '❌ Ninguno de los formularios especificados existe.', ephemeral: true });
+            }
+
+            // Crear menú desplegable solo con los válidos
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId('form_select')
+                .setPlaceholder('Selecciona un formulario')
+                .addOptions(
+                    validNames.map(name => ({
+                        label: name,
+                        value: name,
+                        description: `Formulario: ${name}`
+                    }))
+                );
+
+            const row = new ActionRowBuilder().addComponents(selectMenu);
+            const embed = new EmbedBuilder()
+                .setTitle('📋 Panel de Formularios')
+                .setDescription('Selecciona un formulario para comenzar. Recibirás las preguntas por mensaje directo.')
+                .setColor('#00aaff')
+                .setFooter({ text: 'Sistema de formularios' })
+                .setTimestamp();
+
+            await interaction.channel.send({ embeds: [embed], components: [row] });
+            let replyMsg = `✅ Panel creado con los formularios: ${validNames.join(', ')}`;
+            if (invalidNames.length) {
+                replyMsg += `\n⚠️ Los siguientes no existen y se ignoraron: ${invalidNames.join(', ')}`;
+            }
+            await interaction.reply({ content: replyMsg, ephemeral: true });
+            return;
+        }
