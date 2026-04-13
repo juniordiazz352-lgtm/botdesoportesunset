@@ -1,30 +1,42 @@
 const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 const fs = require('fs');
 
-module.exports = async (interaction) => {
-    if (!interaction.isStringSelectMenu()) return;
-    if (interaction.customId === 'form_select') {
-        const selectedForm = interaction.values[0];
-        const formsPath = './data/forms.json';
-        if (!fs.existsSync(formsPath)) return;
-        const forms = JSON.parse(fs.readFileSync(formsPath));
-        const formData = forms[selectedForm];
-        if (!formData) return;
+function getForms() {
+    if (fs.existsSync('./data/forms.json')) return JSON.parse(fs.readFileSync('./data/forms.json'));
+    return {};
+}
 
-        // Crear un modal con las preguntas del formulario
-        const modal = new ModalBuilder()
-            .setCustomId(`form_modal_${selectedForm}`)
-            .setTitle(`Formulario: ${selectedForm}`);
+module.exports = async (interaction, client) => {
+    try {
+        if (interaction.customId === 'form_select') {
+            const formName = interaction.values[0];
+            const forms = getForms();
+            const formData = forms[formName];
 
-        const preguntas = formData.preguntas.split('\n');
-        for (let i = 0; i < preguntas.length; i++) {
-            const input = new TextInputBuilder()
-                .setCustomId(`pregunta_${i}`)
-                .setLabel(preguntas[i].slice(0, 45)) // Discord limita a 45 caracteres
-                .setStyle(TextInputStyle.Paragraph)
-                .setRequired(true);
-            modal.addComponents(new ActionRowBuilder().addComponents(input));
+            if (!formData || !formData.preguntas || formData.preguntas.length === 0) {
+                return interaction.reply({ content: 'Formulario no encontrado o sin preguntas. Usa /crear-form de nuevo.', ephemeral: true });
+            }
+
+            const modal = new ModalBuilder()
+                .setCustomId('form_modal_' + formName)
+                .setTitle(formName.slice(0, 45));
+
+            for (let i = 0; i < Math.min(formData.preguntas.length, 5); i++) {
+                const input = new TextInputBuilder()
+                    .setCustomId('pregunta_' + i)
+                    .setLabel(formData.preguntas[i].slice(0, 45))
+                    .setStyle(TextInputStyle.Paragraph)
+                    .setRequired(true)
+                    .setMaxLength(1000);
+                modal.addComponents(new ActionRowBuilder().addComponents(input));
+            }
+
+            return interaction.showModal(modal);
         }
-        await interaction.showModal(modal);
+    } catch (error) {
+        console.error('Error en selectMenuHandler:', error);
+        if (!interaction.replied && !interaction.deferred) {
+            await interaction.reply({ content: 'Error al procesar la seleccion.', ephemeral: true });
+        }
     }
 };
