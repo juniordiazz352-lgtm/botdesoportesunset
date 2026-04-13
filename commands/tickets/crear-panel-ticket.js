@@ -3,52 +3,45 @@ const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, Act
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('crear-panel-ticket')
-        .setDescription('Crear panel de tickets con personalización avanzada'),
+        .setDescription('Crea un panel de tickets personalizable'),
 
     async execute(interaction) {
         const modal = new ModalBuilder()
             .setCustomId('panel_ticket_modal')
-            .setTitle('🎨 Configurar Panel de Tickets');
-        
-        // Título
-        const tituloInput = new TextInputBuilder()
+            .setTitle('Configurar Panel de Tickets');
+
+        const titulo = new TextInputBuilder()
             .setCustomId('titulo')
-            .setLabel('📌 Título del panel')
+            .setLabel('Título del panel')
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder('Ej: Centro de Soporte')
             .setRequired(true);
-        
-        // Descripción
-        const descInput = new TextInputBuilder()
+
+        const descripcion = new TextInputBuilder()
             .setCustomId('descripcion')
-            .setLabel('📝 Descripción del panel')
+            .setLabel('Descripción del panel')
             .setStyle(TextInputStyle.Paragraph)
-            .setPlaceholder('Elige una categoría para abrir un ticket...')
             .setRequired(true);
-        
-        // Color del embed (hex)
-        const colorInput = new TextInputBuilder()
+
+        const color = new TextInputBuilder()
             .setCustomId('color')
-            .setLabel('🎨 Color del embed (hex)')
+            .setLabel('Color del embed (hex, ej: #5865F2)')
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder('#5865F2, #FF0000, #00FF00, etc.')
             .setRequired(false);
-        
-        // Botones: formato "nombre,emoji,color"
-        const botonesInput = new TextInputBuilder()
+
+        const botones = new TextInputBuilder()
             .setCustomId('botones')
-            .setLabel('🔘 Botones (nombre|emoji|color)')
+            .setLabel('Botones (nombre|emoji|color) - uno por línea')
             .setStyle(TextInputStyle.Paragraph)
-            .setPlaceholder('Ejemplos:\nSoporte|🎫|Primary\nVentas|💰|Success\nAyuda|❓|Secondary\nReporte|⚠️|Danger')
+            .setPlaceholder('Soporte|🎫|primary\nVentas|💰|success\nAyuda|❓|secondary')
             .setRequired(true);
-        
+
         modal.addComponents(
-            new ActionRowBuilder().addComponents(tituloInput),
-            new ActionRowBuilder().addComponents(descInput),
-            new ActionRowBuilder().addComponents(colorInput),
-            new ActionRowBuilder().addComponents(botonesInput)
+            new ActionRowBuilder().addComponents(titulo),
+            new ActionRowBuilder().addComponents(descripcion),
+            new ActionRowBuilder().addComponents(color),
+            new ActionRowBuilder().addComponents(botones)
         );
-        
+
         await interaction.showModal(modal);
     }
 };

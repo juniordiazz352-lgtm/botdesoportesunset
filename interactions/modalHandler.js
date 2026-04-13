@@ -247,3 +247,44 @@ module.exports = async (interaction) => {
             await interaction.reply({ content: replyMsg, ephemeral: true });
             return;
         }
+
+        // ============================================
+        // PANEL DE TICKETS (MODAL)
+        // ============================================
+        if (interaction.customId === 'panel_ticket_modal') {
+            await interaction.deferReply({ ephemeral: true });
+            const titulo = interaction.fields.getTextInputValue('titulo');
+            const desc = interaction.fields.getTextInputValue('descripcion');
+            let color = interaction.fields.getTextInputValue('color') || '#5865F2';
+            const botonesRaw = interaction.fields.getTextInputValue('botones');
+
+            if (!/^#[0-9A-Fa-f]{6}$/.test(color)) color = '#5865F2';
+
+            const lineas = botonesRaw.split('\n');
+            const botones = [];
+            for (const linea of lineas) {
+                const partes = linea.split('|');
+                if (partes.length >= 1 && partes[0].trim()) {
+                    botones.push({
+                        nombre: partes[0].trim(),
+                        emoji: partes[1] ? partes[1].trim() : '🎫',
+                        color: partes[2] ? partes[2].trim().toLowerCase() : 'primary'
+                    });
+                }
+            }
+
+            const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+            const embed = new EmbedBuilder().setTitle(titulo).setDescription(desc).setColor(color);
+            const row = new ActionRowBuilder();
+            for (const btn of botones) {
+                const button = new ButtonBuilder()
+                    .setCustomId(`create_ticket_${btn.nombre.toLowerCase().replace(/\s/g, '_')}`)
+                    .setLabel(btn.nombre)
+                    .setStyle(btn.color === 'primary' ? ButtonStyle.Primary : btn.color === 'success' ? ButtonStyle.Success : btn.color === 'danger' ? ButtonStyle.Danger : ButtonStyle.Secondary);
+                if (btn.emoji !== '🎫') button.setEmoji(btn.emoji);
+                row.addComponents(button);
+            }
+            await interaction.channel.send({ embeds: [embed], components: [row] });
+            await interaction.editReply({ content: '✅ Panel de tickets creado.' });
+            return;
+        }
