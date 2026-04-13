@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const fs = require('fs');
 
 module.exports = {
@@ -15,11 +15,28 @@ module.exports = {
 
         const user = interaction.options.getUser('usuario');
         const warnsPath = './data/warns.json';
-        if (!fs.existsSync(warnsPath)) return interaction.reply({ content: `${user} no tiene advertencias.`, ephemeral: true });
-        let warns = JSON.parse(fs.readFileSync(warnsPath));
-        if (!warns[user.id]) return interaction.reply({ content: `${user} no tiene advertencias.`, ephemeral: true });
-        delete warns[user.id];
-        fs.writeFileSync(warnsPath, JSON.stringify(warns, null, 2));
-        await interaction.reply({ content: `✅ Se eliminaron todas las advertencias de ${user}.` });
+        if (fs.existsSync(warnsPath)) {
+            let warns = JSON.parse(fs.readFileSync(warnsPath));
+            if (warns[user.id]) {
+                delete warns[user.id];
+                fs.writeFileSync(warnsPath, JSON.stringify(warns, null, 2));
+            }
+        }
+
+        // Log
+        const logChannel = interaction.guild.channels.cache.get(config.canal_logs);
+        if (logChannel) {
+            const logEmbed = new EmbedBuilder()
+                .setTitle('🗑️ Advertencias eliminadas')
+                .setColor(0x00ff00)
+                .addFields(
+                    { name: 'Usuario', value: user.tag, inline: true },
+                    { name: 'Staff', value: interaction.user.tag, inline: true }
+                )
+                .setTimestamp();
+            await logChannel.send({ embeds: [logEmbed] });
+        }
+
+        await interaction.reply({ content: `✅ Se eliminaron las advertencias de ${user.tag}.` });
     }
 };

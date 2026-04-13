@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const fs = require('fs');
 
 module.exports = {
@@ -16,10 +16,24 @@ module.exports = {
         const user = interaction.options.getMember('usuario');
         await user.timeout(null);
 
-        // DM opcional (avisar que ya no está muteado)
+        // DM
         try {
             await user.send(`🔊 Has sido desmuteado en **${interaction.guild.name}** por ${interaction.user.tag}.`);
         } catch (err) {}
+
+        // Log
+        const logChannel = interaction.guild.channels.cache.get(config.canal_logs);
+        if (logChannel) {
+            const logEmbed = new EmbedBuilder()
+                .setTitle('🔊 Desmuteo')
+                .setColor(0x00ff00)
+                .addFields(
+                    { name: 'Usuario', value: user.user.tag, inline: true },
+                    { name: 'Staff', value: interaction.user.tag, inline: true }
+                )
+                .setTimestamp();
+            await logChannel.send({ embeds: [logEmbed] });
+        }
 
         await interaction.reply({ content: `✅ ${user.user.tag} ha sido desmuteado.` });
     }

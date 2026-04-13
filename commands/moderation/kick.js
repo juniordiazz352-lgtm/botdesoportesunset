@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const fs = require('fs');
 
 module.exports = {
@@ -21,24 +21,38 @@ module.exports = {
             return interaction.reply({ content: '❌ No puedo expulsar a ese usuario.', ephemeral: true });
         }
 
-        // Intentar enviar DM al usuario
+        // DM al usuario
         try {
-            const dmEmbed = {
-                title: '🚫 Has sido expulsado',
-                description: `Fuiste expulsado del servidor **${interaction.guild.name}**`,
-                fields: [
+            const dmEmbed = new EmbedBuilder()
+                .setTitle('🚫 Has sido expulsado')
+                .setDescription(`Fuiste expulsado del servidor **${interaction.guild.name}**`)
+                .addFields(
                     { name: '👮 Staff', value: interaction.user.tag, inline: true },
                     { name: '📝 Razón', value: reason, inline: true }
-                ],
-                color: 0xff0000,
-                timestamp: new Date()
-            };
+                )
+                .setColor(0xff0000)
+                .setTimestamp();
             await user.send({ embeds: [dmEmbed] });
-        } catch (err) {
-            console.log(`No se pudo enviar DM a ${user.user.tag}`);
+        } catch (err) {}
+
+        // Ejecutar expulsión
+        await user.kick(reason);
+
+        // Log al canal de logs
+        const logChannel = interaction.guild.channels.cache.get(config.canal_logs);
+        if (logChannel) {
+            const logEmbed = new EmbedBuilder()
+                .setTitle('👢 Expulsión')
+                .setColor(0xff0000)
+                .addFields(
+                    { name: 'Usuario', value: user.user.tag, inline: true },
+                    { name: 'Staff', value: interaction.user.tag, inline: true },
+                    { name: 'Razón', value: reason, inline: false }
+                )
+                .setTimestamp();
+            await logChannel.send({ embeds: [logEmbed] });
         }
 
-        await user.kick(reason);
         await interaction.reply({ content: `✅ ${user.user.tag} ha sido expulsado. Razón: ${reason}` });
     }
 };
