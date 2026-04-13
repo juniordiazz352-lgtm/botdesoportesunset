@@ -1,6 +1,5 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
 const fs = require('fs');
-const { Warn, StaffStat } = require('../../utils/database');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -18,7 +17,7 @@ module.exports = {
         const user = interaction.options.getUser('usuario');
         const reason = interaction.options.getString('razón') || 'Sin razón';
 
-        // Guardar warn (usando JSON si no hay MongoDB)
+        // Guardar warn (en data/warns.json)
         const warnsPath = './data/warns.json';
         let warns = {};
         if (fs.existsSync(warnsPath)) warns = JSON.parse(fs.readFileSync(warnsPath));
@@ -26,11 +25,21 @@ module.exports = {
         warns[user.id].push({ warnedBy: interaction.user.id, reason, date: Date.now() });
         fs.writeFileSync(warnsPath, JSON.stringify(warns, null, 2));
 
-        const embed = new EmbedBuilder()
-            .setTitle('⚠️ Usuario advertido')
-            .setDescription(`${user} ha sido advertido por ${interaction.user}`)
-            .addFields({ name: 'Razón', value: reason })
-            .setColor('#ff9900');
-        await interaction.reply({ embeds: [embed] });
+        // Enviar DM
+        try {
+            const dmEmbed = {
+                title: '⚠️ Has recibido una advertencia',
+                description: `En el servidor **${interaction.guild.name}**`,
+                fields: [
+                    { name: '👮 Staff', value: interaction.user.tag, inline: true },
+                    { name: '📝 Razón', value: reason, inline: true }
+                ],
+                color: 0xffaa00,
+                timestamp: new Date()
+            };
+            await user.send({ embeds: [dmEmbed] });
+        } catch (err) {}
+
+        await interaction.reply({ content: `⚠️ ${user.tag} ha sido advertido. Razón: ${reason}` });
     }
 };
