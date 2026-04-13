@@ -6,6 +6,7 @@ module.exports = {
         .setDescription('Muestra estadísticas del bot'),
 
     async execute(interaction) {
+        // Responder inmediatamente (no hay operaciones lentas)
         const embed = new EmbedBuilder()
             .setTitle('📊 Estadísticas del Bot')
             .addFields(

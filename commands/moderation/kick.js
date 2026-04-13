@@ -9,19 +9,20 @@ module.exports = {
         .addStringOption(opt => opt.setName('razón').setDescription('Motivo de la expulsión').setRequired(false)),
 
     async execute(interaction) {
+        await interaction.deferReply({ ephemeral: false }); // Respuesta pública
+
         const config = JSON.parse(fs.readFileSync('./data/config.json'));
         if (!interaction.member.roles.cache.has(config.rol_staff)) {
-            return interaction.reply({ content: '❌ No tienes permiso.', ephemeral: true });
+            return interaction.editReply({ content: '❌ No tienes permiso.', ephemeral: true });
         }
 
         const user = interaction.options.getMember('usuario');
         const reason = interaction.options.getString('razón') || 'Sin razón';
 
         if (!user.kickable) {
-            return interaction.reply({ content: '❌ No puedo expulsar a ese usuario.', ephemeral: true });
+            return interaction.editReply({ content: '❌ No puedo expulsar a ese usuario.' });
         }
 
-        // DM al usuario
         try {
             const dmEmbed = new EmbedBuilder()
                 .setTitle('🚫 Has sido expulsado')
@@ -35,10 +36,8 @@ module.exports = {
             await user.send({ embeds: [dmEmbed] });
         } catch (err) {}
 
-        // Ejecutar expulsión
         await user.kick(reason);
 
-        // Log al canal de logs
         const logChannel = interaction.guild.channels.cache.get(config.canal_logs);
         if (logChannel) {
             const logEmbed = new EmbedBuilder()
@@ -53,6 +52,6 @@ module.exports = {
             await logChannel.send({ embeds: [logEmbed] });
         }
 
-        await interaction.reply({ content: `✅ ${user.user.tag} ha sido expulsado. Razón: ${reason}` });
+        await interaction.editReply({ content: `✅ ${user.user.tag} ha sido expulsado. Razón: ${reason}` });
     }
 };
