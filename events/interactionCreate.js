@@ -4,7 +4,7 @@ const modalHandler = require('../interactions/modalHandler');
 
 module.exports = {
     name: 'interactionCreate',
-    async execute(interaction, client) {
+    execute: async function(interaction, client) {
         try {
             if (interaction.isChatInputCommand()) {
                 await handleSlashCommand(interaction, client);
@@ -17,9 +17,9 @@ module.exports = {
                 await selectHandler(interaction, client);
             }
         } catch (error) {
-            console.error('❌ Error en interactionCreate:', error);
+            console.error('Error en interactionCreate:', error);
             if (!interaction.replied && !interaction.deferred) {
-                await interaction.reply({ content: '❌ Error al procesar la interacción.', ephemeral: true });
+                await interaction.reply({ content: 'Error al procesar la interaccion.', ephemeral: true });
             }
         }
     }
