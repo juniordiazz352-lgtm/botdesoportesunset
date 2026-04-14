@@ -1,3 +1,4 @@
+const fetch = require('node-fetch');
 const fs = require('fs');
 
 const codesPath = './data/verifyCodes.json';
@@ -49,16 +50,12 @@ function markVerified(userId, robloxUsername) {
     return false;
 }
 
-// Usando fetch nativo de Node.js 18+
 async function getRobloxUserId(username) {
     try {
         const res = await fetch(`https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(username)}&limit=1`);
         const data = await res.json();
         return data.data?.[0]?.id || null;
-    } catch (e) {
-        console.error('Error fetching Roblox user ID:', e);
-        return null;
-    }
+    } catch (e) { return null; }
 }
 
 async function getUserDescription(userId) {
@@ -66,10 +63,7 @@ async function getUserDescription(userId) {
         const res = await fetch(`https://users.roblox.com/v1/users/${userId}`);
         const data = await res.json();
         return data.description || '';
-    } catch (e) {
-        console.error('Error fetching Roblox description:', e);
-        return '';
-    }
+    } catch (e) { return ''; }
 }
 
 async function verifyCode(username, expectedCode) {
@@ -79,4 +73,4 @@ async function verifyCode(username, expectedCode) {
     return description.includes(expectedCode);
 }
 
-module.exports = { getOrCreateCode, markVerified, verifyCode };
+module.exports = { loadCodes, saveCodes, getOrCreateCode, markVerified, verifyCode };
