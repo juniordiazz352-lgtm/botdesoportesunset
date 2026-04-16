@@ -1,56 +1,40 @@
-const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('crear-form')
-        .setDescription('Crea un formulario con hasta 18 preguntas')
-        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+        .setDescription('Crear un nuevo formulario (con canal de respuestas)'),
+
     async execute(interaction) {
         const modal = new ModalBuilder()
             .setCustomId('crear_form_modal')
             .setTitle('Crear Formulario');
+
+        const nombreInput = new TextInputBuilder()
+            .setCustomId('nombre')
+            .setLabel('Nombre del formulario')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        const preguntasInput = new TextInputBuilder()
+            .setCustomId('preguntas')
+            .setLabel('Preguntas (una por línea)')
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(true);
+
+        const canalInput = new TextInputBuilder()
+            .setCustomId('canal')
+            .setLabel('ID o mención del canal para respuestas')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('#canal o ID numérico')
+            .setRequired(true);
+
         modal.addComponents(
-            new ActionRowBuilder().addComponents(
-                new TextInputBuilder()
-                    .setCustomId('nombre')
-                    .setLabel('Nombre del formulario')
-                    .setStyle(TextInputStyle.Short)
-                    .setPlaceholder('Ej: Solicitud de Staff')
-                    .setRequired(true).setMaxLength(50)
-            ),
-            new ActionRowBuilder().addComponents(
-                new TextInputBuilder()
-                    .setCustomId('cantidad')
-                    .setLabel('Cuantas preguntas tendra? (1 al 18)')
-                    .setStyle(TextInputStyle.Short)
-                    .setPlaceholder('Ej: 7')
-                    .setRequired(true).setMaxLength(2)
-            ),
-            new ActionRowBuilder().addComponents(
-                new TextInputBuilder()
-                    .setCustomId('canal_respuestas')
-                    .setLabel('ID del canal de respuestas')
-                    .setStyle(TextInputStyle.Short)
-                    .setPlaceholder('123456789012345678')
-                    .setRequired(true).setMaxLength(20)
-            ),
-            new ActionRowBuilder().addComponents(
-                new TextInputBuilder()
-                    .setCustomId('canal_aprobados')
-                    .setLabel('ID del canal de aprobados')
-                    .setStyle(TextInputStyle.Short)
-                    .setPlaceholder('123456789012345678')
-                    .setRequired(true).setMaxLength(20)
-            ),
-            new ActionRowBuilder().addComponents(
-                new TextInputBuilder()
-                    .setCustomId('canal_rechazados')
-                    .setLabel('ID del canal de rechazados')
-                    .setStyle(TextInputStyle.Short)
-                    .setPlaceholder('123456789012345678')
-                    .setRequired(true).setMaxLength(20)
-            )
+            new ActionRowBuilder().addComponents(nombreInput),
+            new ActionRowBuilder().addComponents(preguntasInput),
+            new ActionRowBuilder().addComponents(canalInput)
         );
+
         await interaction.showModal(modal);
     }
 };

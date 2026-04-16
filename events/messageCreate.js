@@ -6,24 +6,34 @@ module.exports = {
     async execute(message) {
         if (message.author.bot) return;
 
-        // !say
+        // ====================================
+        // COMANDOS CON PREFIJO !
+        // ====================================
+
+        // !say <texto>
         if (message.content.startsWith('!say')) {
             const text = message.content.slice(5).trim();
-            if (!text) return message.reply('❌ Escribe algo');
+            if (!text) return message.reply('❌ Escribe algo después de !say');
             await message.channel.send(text);
             await message.delete().catch(() => {});
             return;
         }
 
-        // !embed
+        // !embed <título> | <descripción>
         if (message.content.startsWith('!embed')) {
             const content = message.content.slice(7).trim();
-            const sep = content.indexOf('|');
-            let title = sep === -1 ? '📢 Anuncio' : content.slice(0, sep).trim();
-            let desc = sep === -1 ? content : content.slice(sep + 1).trim();
+            const separatorIndex = content.indexOf('|');
+            let title, description;
+            if (separatorIndex === -1) {
+                title = '📢 Anuncio';
+                description = content;
+            } else {
+                title = content.slice(0, separatorIndex).trim();
+                description = content.slice(separatorIndex + 1).trim();
+            }
             const embed = new EmbedBuilder()
-                .setTitle(title)
-                .setDescription(desc)
+                .setTitle(title || '📢 Anuncio')
+                .setDescription(description || 'Sin descripción')
                 .setColor('#5865F2')
                 .setFooter({ text: `Creado por ${message.author.tag}` })
                 .setTimestamp();
@@ -34,7 +44,8 @@ module.exports = {
 
         // !ping
         if (message.content === '!ping') {
-            await message.reply(`🏓 Pong! ${Math.round(message.client.ws.ping)}ms`);
+            const ping = Math.round(message.client.ws.ping);
+            await message.reply(`🏓 Pong! Latencia: ${ping}ms`);
             await message.delete().catch(() => {});
             return;
         }
@@ -51,13 +62,14 @@ module.exports = {
                     { name: '📅 Uptime', value: `${Math.floor(process.uptime() / 3600)}h ${Math.floor((process.uptime() % 3600) / 60)}m`, inline: true },
                     { name: '📚 Comandos', value: `${message.client.commands.size}`, inline: true }
                 )
+                .setFooter({ text: 'Bot de Soporte PRO' })
                 .setTimestamp();
             await message.channel.send({ embeds: [embed] });
             await message.delete().catch(() => {});
             return;
         }
 
-        // !purge (solo staff)
+        // !purge <cantidad> (solo staff)
         if (message.content.startsWith('!purge')) {
             let config = {};
             if (fs.existsSync('./data/config.json')) {

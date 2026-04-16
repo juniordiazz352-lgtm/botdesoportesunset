@@ -1,32 +1,29 @@
-const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const fs = require('fs');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('listar-forms')
-        .setDescription('Muestra todos los formularios creados')
-        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-    async execute(interaction) {
-        if (!fs.existsSync('./data/forms.json')) {
-            return interaction.reply({ content: '❌ No hay formularios creados.', ephemeral: true });
-        }
-        const forms = JSON.parse(fs.readFileSync('./data/forms.json'));
-        const names = Object.keys(forms);
-        if (names.length === 0) return interaction.reply({ content: '❌ No hay formularios.', ephemeral: true });
+        .setDescription('Listar todos los formularios con su canal de destino'),
 
+    async execute(interaction) {
+        const formsPath = './data/forms.json';
+        if (!fs.existsSync(formsPath)) {
+            return interaction.reply({ content: '❌ No hay formularios.', ephemeral: true });
+        }
+        const forms = JSON.parse(fs.readFileSync(formsPath));
+        const formNames = Object.keys(forms);
+        if (formNames.length === 0) {
+            return interaction.reply({ content: '❌ No hay formularios.', ephemeral: true });
+        }
         const embed = new EmbedBuilder()
-            .setTitle('📋 Formularios Creados')
-            .setColor('#5865F2')
-            .setDescription(names.map((n, i) => {
-                const f = forms[n];
-                return '**' + (i+1) + '. ' + n + '**\n' +
-                    '❓ ' + f.preguntas.length + ' preguntas\n' +
-                    '📥 Respuestas: <#' + f.canalRespuestas + '>\n' +
-                    '✅ Aprobados: <#' + f.canalAprobados + '>\n' +
-                    '❌ Rechazados: <#' + f.canalRechazados + '>';
-            }).join('\n\n'))
-            .setFooter({ text: 'Total: ' + names.length + ' formulario(s)' })
-            .setTimestamp();
-        return interaction.reply({ embeds: [embed], ephemeral: true });
+            .setTitle('📋 Formularios disponibles')
+            .setColor('#00aaff');
+        for (const name of formNames) {
+            const form = forms[name];
+            const canal = interaction.guild.channels.cache.get(form.canalId);
+            embed.addFields({ name: name, value: `📨 Respuestas: ${canal ? canal : 'Canal no encontrado'}\n❓ Preguntas: ${form.preguntas.length}`, inline: false });
+        }
+        await interaction.reply({ embeds: [embed] });
     }
 };
