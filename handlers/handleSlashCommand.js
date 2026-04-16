@@ -1,9 +1,7 @@
 module.exports = async (interaction) => {
     const command = interaction.client.commands.get(interaction.commandName);
-    if (!command) {
-        console.log(`Comando no encontrado: ${interaction.commandName}`);
-        return;
-    }
+    if (!command) return;
+
     try {
         await command.execute(interaction);
     } catch (error) {
