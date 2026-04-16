@@ -6,14 +6,13 @@ module.exports = async (interaction) => {
 
     try {
         // ============================================
-        // CREAR FORMULARIO (modal con nombre, preguntas, canal)
+        // CREAR FORMULARIO (modal)
         // ============================================
         if (interaction.customId === 'crear_form_modal') {
             const nombre = interaction.fields.getTextInputValue('nombre');
             const preguntasRaw = interaction.fields.getTextInputValue('preguntas');
             const canalRaw = interaction.fields.getTextInputValue('canal');
 
-            // Extraer ID del canal de la mención o texto
             let canalId = canalRaw.replace(/[<#>]/g, '');
             const canal = interaction.guild.channels.cache.get(canalId);
             if (!canal) {
@@ -41,7 +40,7 @@ module.exports = async (interaction) => {
         }
 
         // ============================================
-        // PANEL DE FORMULARIOS (selector con título, descripción, color y formularios específicos)
+        // PANEL DE FORMULARIOS (selector)
         // ============================================
         if (interaction.customId === 'panel_form_selector') {
             const titulo = interaction.fields.getTextInputValue('titulo');
@@ -115,7 +114,7 @@ module.exports = async (interaction) => {
                 await targetChannel.send({ embeds: [embed] });
                 await interaction.reply({ content: '✅ Formulario enviado correctamente.', ephemeral: true });
             } else {
-                // Si el canal no existe, usar el canal de logs como respaldo
+                // Fallback: usar canal de logs
                 let config = {};
                 if (fs.existsSync('./data/config.json')) {
                     config = JSON.parse(fs.readFileSync('./data/config.json'));
