@@ -43,7 +43,7 @@ module.exports = {
         if (message.content === '!info') {
             const embed = new EmbedBuilder()
                 .setTitle('🤖 Información del Bot')
-                .setDescription('Bot de soporte con verificación Roblox, formularios, bienvenidas y moderación')
+                .setDescription('Bot de soporte con formularios, bienvenidas y moderación')
                 .setColor('#00ff00')
                 .addFields(
                     { name: '📡 Ping', value: `${Math.round(message.client.ws.ping)}ms`, inline: true },
@@ -77,66 +77,6 @@ module.exports = {
             setTimeout(() => msg.delete(), 3000);
             await message.delete().catch(() => {});
             return;
-        }
-
-        // !verify (alternativa a /verify)
-        if (message.content === '!verify') {
-            const { getOrCreateCode } = require('../utils/robloxVerify');
-            const code = getOrCreateCode(message.author.id);
-            const embed = new EmbedBuilder()
-                .setTitle('🔐 Verificación Roblox')
-                .setDescription(`**Tu código:** \`${code}\`\n\nPonlo en tu descripción de Roblox y luego **responde a este mensaje** con tu usuario.\n⏰ Tienes 10 minutos.`)
-                .setColor('#00ff00');
-            try {
-                const dm = await message.author.createDM();
-                await dm.send({ embeds: [embed] });
-                await message.reply('✅ Revisa tus mensajes directos.');
-            } catch (err) {
-                await message.reply('❌ No pude enviarte DM. Habilita los mensajes directos.');
-            }
-            await message.delete().catch(() => {});
-            return;
-        }
-
-        // ============================================
-        // PROCESAR RESPUESTA DE VERIFICACIÓN (DM)
-        // ============================================
-        if (message.channel.type === 1 && !message.author.bot) {
-            const { loadCodes, markVerified, verifyCode } = require('../utils/robloxVerify');
-            const codes = loadCodes();
-            const userData = codes[message.author.id];
-            if (!userData || userData.verified) return;
-
-            if (Date.now() - userData.createdAt > 10 * 60 * 1000) {
-                await message.reply('❌ Código expirado. Ejecuta `!verify` de nuevo.');
-                return;
-            }
-
-            const robloxUser = message.content.trim();
-            if (!robloxUser) return;
-
-            const isValid = await verifyCode(robloxUser, userData.code);
-            if (isValid) {
-                markVerified(message.author.id, robloxUser);
-                const guild = message.client.guilds.cache.first();
-                const member = guild?.members.cache.get(message.author.id);
-                if (member) {
-                    await member.setNickname(`${member.user.username} (@${robloxUser})`).catch(() => {});
-                    let config = {};
-                    if (fs.existsSync('./data/config.json')) config = JSON.parse(fs.readFileSync('./data/config.json'));
-                    if (config.verify?.noVerificado) {
-                        const role = guild.roles.cache.get(config.verify.noVerificado);
-                        if (role) await member.roles.remove(role);
-                    }
-                    if (config.verify?.verificado) {
-                        const role = guild.roles.cache.get(config.verify.verificado);
-                        if (role) await member.roles.add(role);
-                    }
-                }
-                await message.reply('✅ ¡Verificación exitosa! Apodo actualizado y roles asignados.');
-            } else {
-                await message.reply('❌ Código no encontrado en tu descripción de Roblox. Revisa y vuelve a enviar tu usuario.');
-            }
         }
     }
 };

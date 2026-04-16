@@ -3,67 +3,53 @@ const fs = require('fs');
 
 module.exports = {
     name: 'guildMemberAdd',
-    async execute(member, client) {
+    async execute(member) {
         if (!fs.existsSync('./data/config.json')) return;
         const config = JSON.parse(fs.readFileSync('./data/config.json'));
-
-        // Asignar rol no verificado
-        if (config.verify?.noVerificado) {
-            const role = member.guild.roles.cache.get(config.verify.noVerificado);
-            if (role) await member.roles.add(role).catch(() => {});
-        }
+        if (!config.welcome) return;
 
         // Asignar roles de bienvenida
-        if (config.welcome?.roles?.length) {
+        if (config.welcome.roles && config.welcome.roles.length) {
             for (const roleId of config.welcome.roles) {
                 const role = member.guild.roles.cache.get(roleId);
                 if (role) await member.roles.add(role).catch(() => {});
             }
         }
 
-        // Embed de bienvenida en canal
-        if (config.welcome?.canal) {
-            const channel = member.guild.channels.cache.get(config.welcome.canal);
-            if (channel) {
-                const mensajeBase = config.welcome.mensaje || '¡Bienvenido a {server}, {user}!';
-                const mensaje = mensajeBase
-                    .replace(/{user}/g, '<@' + member.id + '>')
-                    .replace(/{server}/g, member.guild.name)
-                    .replace(/{count}/g, member.guild.memberCount);
+        // Canal de bienvenida
+        const channel = member.guild.channels.cache.get(config.welcome.canal);
+        if (!channel) return;
 
-                const embed = new EmbedBuilder()
-                    .setTitle('🎉 ¡Bienvenido/a al servidor!')
-                    .setDescription(mensaje)
-                    .setColor(config.welcome.color || '#57F287')
-                    .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 256 }))
-                    .addFields(
-                        { name: '👤 Usuario', value: member.user.tag, inline: true },
-                        { name: '📅 Cuenta creada', value: '<t:' + Math.floor(member.user.createdTimestamp / 1000) + ':R>', inline: true },
-                        { name: '👥 Miembro numero', value: '#' + member.guild.memberCount, inline: true }
-                    )
-                    .setFooter({ text: member.guild.name + ' • Bienvenido/a' });
+        // Estadísticas del servidor
+        const totalMembers = member.guild.memberCount;
+        const humanCount = member.guild.members.cache.filter(m => !m.user.bot).size;
+        const botCount = member.guild.members.cache.filter(m => m.user.bot).size;
+        const boosterCount = member.guild.premiumSubscriptionCount || 0;
 
-                if (config.welcome.imagen) embed.setImage(config.welcome.imagen);
+        // Mensaje personalizado con variables
+        let mensaje = config.welcome.mensaje
+            .replace(/{user}/g, `<@${member.id}>`)
+            .replace(/{server}/g, member.guild.name)
+            .replace(/{count}/g, totalMembers);
 
-                await channel.send({ embeds: [embed] });
-            }
-        }
+        // Embed PRO
+        const embed = new EmbedBuilder()
+            .setColor(config.welcome.color || '#00ff00')
+            .setTitle(`🎉 ¡Bienvenido a ${member.guild.name}! 🎉`)
+            .setDescription(mensaje)
+            .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 256 }))
+            .setImage(config.welcome.imagen || null)
+            .addFields(
+                { name: '👤 Miembro', value: `${member.user.tag}`, inline: true },
+                { name: '📅 Miembro #', value: `${totalMembers}`, inline: true },
+                { name: '🤖 Bots', value: `${botCount}`, inline: true },
+                { name: '👥 Humanos', value: `${humanCount}`, inline: true },
+                { name: '💪 Boosts', value: `${boosterCount}`, inline: true },
+                { name: '📅 Cuenta creada', value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`, inline: true }
+            )
+            .setFooter({ text: `ID: ${member.id} • Esperamos que disfrutes tu estancia` })
+            .setTimestamp();
 
-        // DM de bienvenida
-        if (config.welcome?.mensajeDM) {
-            try {
-                const dm = await member.user.createDM();
-                const dmMensaje = config.welcome.mensajeDM
-                    .replace(/{user}/g, member.user.username)
-                    .replace(/{server}/g, member.guild.name);
-                const dmEmbed = new EmbedBuilder()
-                    .setTitle('👋 Bienvenido/a a ' + member.guild.name)
-                    .setDescription(dmMensaje)
-                    .setColor(config.welcome.color || '#57F287')
-                    .setThumbnail(member.guild.iconURL({ dynamic: true }))
-                    .setTimestamp();
-                await dm.send({ embeds: [dmEmbed] });
-            } catch (e) {}
-        }
+        await channel.send({ embeds: [embed] });
     }
 };
