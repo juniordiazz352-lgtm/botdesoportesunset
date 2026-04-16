@@ -1,7 +1,6 @@
-const { ChannelType, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const fs = require('fs');
 
-// Sesiones activas { userId: { nombre, cantidad, canalId, guildId, preguntas[] } }
 const formSessions = {};
 
 function getForms() {
@@ -12,189 +11,52 @@ function saveForms(forms) {
     if (!fs.existsSync('./data')) fs.mkdirSync('./data');
     fs.writeFileSync('./data/forms.json', JSON.stringify(forms, null, 2));
 }
-function getTickets() {
-    if (fs.existsSync('./data/tickets.json')) return JSON.parse(fs.readFileSync('./data/tickets.json'));
-    return {};
-}
-function saveTickets(tickets) {
-    if (!fs.existsSync('./data')) fs.mkdirSync('./data');
-    fs.writeFileSync('./data/tickets.json', JSON.stringify(tickets, null, 2));
-}
-function getConfig() {
-    if (fs.existsSync('./data/config.json')) return JSON.parse(fs.readFileSync('./data/config.json'));
-    return {};
-}
-let ticketCounters = {};
-function loadCounters() {
-    if (fs.existsSync('./data/counters.json')) ticketCounters = JSON.parse(fs.readFileSync('./data/counters.json'));
-}
-function saveCounters() {
-    if (!fs.existsSync('./data')) fs.mkdirSync('./data');
-    fs.writeFileSync('./data/counters.json', JSON.stringify(ticketCounters, null, 2));
-}
-function getNextTicketNumber(category) {
-    if (!ticketCounters[category]) ticketCounters[category] = 0;
-    ticketCounters[category]++;
-    saveCounters();
-    return String(ticketCounters[category]).padStart(4, '0');
-}
-function getButtonStyle(color) {
-    const map = { primary: ButtonStyle.Primary, secondary: ButtonStyle.Secondary, success: ButtonStyle.Success, danger: ButtonStyle.Danger };
-    return map[color?.toLowerCase()] || ButtonStyle.Primary;
-}
-
-// Exportar sesiones para que messageCreate pueda accederlas
-module.exports.formSessions = formSessions;
 
 module.exports = async (interaction, client) => {
     try {
-        loadCounters();
 
-        // PANEL DE TICKETS
-        if (interaction.customId === 'panel_ticket_modal') {
-            await interaction.deferReply({ ephemeral: true });
-            const titulo = interaction.fields.getTextInputValue('titulo');
-            const desc = interaction.fields.getTextInputValue('descripcion');
-            let color = interaction.fields.getTextInputValue('color') || '#5865F2';
-            const botonesRaw = interaction.fields.getTextInputValue('botones');
-            if (!/^#[0-9A-Fa-f]{6}$/.test(color)) color = '#5865F2';
-            const botones = [];
-            for (const linea of botonesRaw.split('\n')) {
-                const partes = linea.split('|');
-                if (partes[0]?.trim()) {
-                    botones.push({
-                        nombre: partes[0].trim(),
-                        emoji: partes[1]?.trim() || '🎫',
-                        color: partes[2]?.trim().toLowerCase() || 'primary'
-                    });
-                }
-            }
-            const embed = new EmbedBuilder()
-                .setTitle(titulo)
-                .setDescription(desc)
-                .setColor(color)
-                .setFooter({ text: 'Haz clic en un boton para abrir un ticket' })
-                .setTimestamp();
-            const row = new ActionRowBuilder();
-            for (const btn of botones.slice(0, 5)) {
-                row.addComponents(
-                    new ButtonBuilder()
-                        .setCustomId('create_ticket_' + btn.nombre.toLowerCase().replace(/\s/g, '_'))
-                        .setLabel(btn.nombre)
-                        .setEmoji(btn.emoji)
-                        .setStyle(getButtonStyle(btn.color))
-                );
-            }
-            await interaction.channel.send({ embeds: [embed], components: [row] });
-            return interaction.editReply({ content: '✅ Panel de tickets creado con ' + botones.length + ' botones.' });
-        }
-
-        // CREAR TICKET DESDE MODAL
-        if (interaction.customId.startsWith('ticket_modal_')) {
-            await interaction.deferReply({ ephemeral: true });
-            const config = getConfig();
-            const category = interaction.customId.replace('ticket_modal_', '');
-            const motivo = interaction.fields.getTextInputValue('motivo');
-            const ticketNumber = getNextTicketNumber(category);
-            const ticketId = category + '-' + ticketNumber;
-            const channel = await interaction.guild.channels.create({
-                name: 'ticket-' + ticketId,
-                type: ChannelType.GuildText,
-                parent: config.categoria_tickets || null,
-                permissionOverwrites: [
-                    { id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] },
-                    { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
-                ]
-            });
-            if (config.rol_staff) {
-                await channel.permissionOverwrites.edit(config.rol_staff, {
-                    ViewChannel: true, SendMessages: true, ReadMessageHistory: true
-                });
-            }
-            const tickets = getTickets();
-            tickets[channel.id] = {
-                ticketId, category,
-                userId: interaction.user.id,
-                userTag: interaction.user.tag,
-                channelId: channel.id,
-                createdAt: Date.now(),
-                claimedBy: null,
-                status: 'open'
-            };
-            saveTickets(tickets);
-            const embed = new EmbedBuilder()
-                .setTitle('🎫 Ticket ' + ticketId)
-                .setDescription('**Categoria:** ' + category + '\n**Motivo:**\n' + motivo)
-                .setColor('#5865F2')
-                .setFooter({ text: 'ID: ' + ticketId + ' | ' + interaction.user.tag })
-                .setTimestamp();
-            const row = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('ticket_claim').setLabel('Reclamar').setEmoji('👤').setStyle(ButtonStyle.Primary),
-                new ButtonBuilder().setCustomId('ticket_close').setLabel('Cerrar').setEmoji('🔒').setStyle(ButtonStyle.Danger),
-                new ButtonBuilder().setCustomId('ticket_transcript').setLabel('Transcript').setEmoji('📄').setStyle(ButtonStyle.Secondary)
-            );
-            await channel.send({ content: '<@' + interaction.user.id + '>', embeds: [embed], components: [row] });
-            await interaction.editReply({ content: '✅ Ticket creado: ' + channel });
-            const logChannel = interaction.guild.channels.cache.get(config.canal_logs);
-            if (logChannel) {
-                await logChannel.send({ embeds: [
-                    new EmbedBuilder().setTitle('🎫 Nuevo Ticket').setColor('#00ff00')
-                        .addFields(
-                            { name: 'ID', value: ticketId, inline: true },
-                            { name: 'Categoria', value: category, inline: true },
-                            { name: 'Usuario', value: '<@' + interaction.user.id + '>', inline: true }
-                        ).setTimestamp()
-                ]});
-            }
-            return;
-        }
-
-        // CREAR FORMULARIO — inicia sesion de DM
+        // CREAR FORMULARIO — inicia sesion DM
         if (interaction.customId === 'crear_form_modal') {
             const nombre = interaction.fields.getTextInputValue('nombre').trim();
             const cantidadRaw = interaction.fields.getTextInputValue('cantidad').trim();
-            const canalId = interaction.fields.getTextInputValue('canal_id').trim();
+            const canalRespuestas = interaction.fields.getTextInputValue('canal_respuestas').trim();
+            const canalAprobados = interaction.fields.getTextInputValue('canal_aprobados').trim();
+            const canalRechazados = interaction.fields.getTextInputValue('canal_rechazados').trim();
 
             const cantidad = parseInt(cantidadRaw);
             if (isNaN(cantidad) || cantidad < 1 || cantidad > 18) {
-                return interaction.reply({ content: '❌ La cantidad debe ser un numero entre 1 y 18.', ephemeral: true });
+                return interaction.reply({ content: '❌ La cantidad debe ser entre 1 y 18.', ephemeral: true });
+            }
+            if (!interaction.guild.channels.cache.get(canalRespuestas)) {
+                return interaction.reply({ content: '❌ No encontre el canal de respuestas.', ephemeral: true });
+            }
+            if (!interaction.guild.channels.cache.get(canalAprobados)) {
+                return interaction.reply({ content: '❌ No encontre el canal de aprobados.', ephemeral: true });
+            }
+            if (!interaction.guild.channels.cache.get(canalRechazados)) {
+                return interaction.reply({ content: '❌ No encontre el canal de rechazados.', ephemeral: true });
             }
 
-            const canalRespuestas = interaction.guild.channels.cache.get(canalId);
-            if (!canalRespuestas) {
-                return interaction.reply({ content: '❌ No encontre el canal con ese ID.', ephemeral: true });
-            }
-
-            // Iniciar DM
             let dm;
-            try {
-                dm = await interaction.user.createDM();
-            } catch (e) {
-                return interaction.reply({ content: '❌ No pude abrirte un DM. Activa los mensajes directos del servidor.', ephemeral: true });
-            }
+            try { dm = await interaction.user.createDM(); }
+            catch (e) { return interaction.reply({ content: '❌ No pude abrirte un DM. Activa los mensajes directos.', ephemeral: true }); }
 
-            // Guardar sesion
             formSessions[interaction.user.id] = {
-                nombre,
-                cantidad,
-                canalId,
+                nombre, cantidad, canalRespuestas, canalAprobados, canalRechazados,
                 guildId: interaction.guild.id,
-                preguntas: [],
-                paso: 0
+                preguntas: [], paso: 0
             };
 
-            await interaction.reply({ content: '📬 Te envie un DM para configurar las preguntas del formulario.', ephemeral: true });
-
+            await interaction.reply({ content: '📬 Te envie un DM para configurar las preguntas.', ephemeral: true });
             await dm.send({
-                embeds: [
-                    new EmbedBuilder()
-                        .setTitle('📋 Creando formulario: ' + nombre)
-                        .setDescription('Voy a pedirte **' + cantidad + ' pregunta(s)** una por una.\nEscribe cada pregunta y enviala.\n\n⏰ Tienes **2 minutos** por pregunta.')
-                        .setColor('#5865F2')
-                        .setFooter({ text: 'Pregunta 1 de ' + cantidad })
+                embeds: [new EmbedBuilder()
+                    .setTitle('📋 Creando: ' + nombre)
+                    .setDescription('Te hare **' + cantidad + '** pregunta(s) una por una.\nEscribe cada pregunta y enviala.\n\n⏰ **2 minutos** por pregunta.')
+                    .setColor('#5865F2')
+                    .setFooter({ text: 'Comenzando con la pregunta 1 de ' + cantidad })
                 ]
             });
-            await dm.send('**Pregunta 1 de ' + cantidad + ':** ¿Cual sera la primera pregunta?');
+            await dm.send('✏️ **Pregunta 1 de ' + cantidad + ':**\n¿Cual sera la pregunta 1?');
             return;
         }
 
@@ -202,26 +64,30 @@ module.exports = async (interaction, client) => {
         if (interaction.customId === 'panel_form_selector') {
             const titulo = interaction.fields.getTextInputValue('titulo');
             const descripcion = interaction.fields.getTextInputValue('descripcion');
-            let color = interaction.fields.getTextInputValue('color') || '#EB459E';
+            let color = interaction.fields.getTextInputValue('color') || '#5865F2';
             const raw = interaction.fields.getTextInputValue('form_list');
-            if (!/^#[0-9A-Fa-f]{6}$/.test(color)) color = '#EB459E';
-            const selectedNames = [...new Set(raw.split(',').map(s => s.trim()).filter(s => s.length > 0))];
+            if (!/^#[0-9A-Fa-f]{6}$/.test(color)) color = '#5865F2';
+
+            const selectedNames = [...new Set(raw.split(',').map(s => s.trim()).filter(Boolean))];
             const forms = getForms();
-            const validNames = selectedNames.filter(name => forms[name]);
-            const invalidNames = selectedNames.filter(name => !forms[name]);
+            const validNames = selectedNames.filter(n => forms[n]);
+            const invalidNames = selectedNames.filter(n => !forms[n]);
+
             if (validNames.length === 0) {
-                return interaction.reply({ content: '❌ Ningun formulario encontrado. Usa /listar-forms para ver los nombres exactos.', ephemeral: true });
+                return interaction.reply({ content: '❌ Ningun formulario valido. Usa /listar-forms para ver los nombres exactos.', ephemeral: true });
             }
+
             const embed = new EmbedBuilder()
                 .setTitle(titulo)
                 .setDescription(descripcion)
                 .setColor(color)
                 .addFields({
                     name: '📋 Formularios disponibles',
-                    value: validNames.map(n => '• **' + n + '** — ' + forms[n].preguntas.length + ' preguntas').join('\n')
+                    value: validNames.map(n => '📌 **' + n + '** — ' + forms[n].preguntas.length + ' preguntas').join('\n')
                 })
-                .setFooter({ text: 'Selecciona un formulario del menu desplegable' })
+                .setFooter({ text: 'Selecciona un formulario del menu de abajo' })
                 .setTimestamp();
+
             const selectMenu = new StringSelectMenuBuilder()
                 .setCustomId('form_select')
                 .setPlaceholder('📋 Selecciona un formulario...')
@@ -231,6 +97,7 @@ module.exports = async (interaction, client) => {
                     description: forms[name].preguntas.length + ' preguntas',
                     emoji: '📋'
                 })));
+
             await interaction.channel.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(selectMenu)] });
             let reply = '✅ Panel creado con: ' + validNames.join(', ');
             if (invalidNames.length > 0) reply += '\n⚠️ No encontrados: ' + invalidNames.join(', ');
@@ -243,23 +110,91 @@ module.exports = async (interaction, client) => {
             const forms = getForms();
             const formData = forms[formName];
             if (!formData) return interaction.reply({ content: '❌ Formulario no encontrado.', ephemeral: true });
+
             const respuestas = formData.preguntas.map((pregunta, i) => ({
                 pregunta,
                 respuesta: interaction.fields.getTextInputValue('pregunta_' + i)
             }));
+
             const embed = new EmbedBuilder()
                 .setTitle('📋 Nueva Respuesta: ' + formName)
                 .setColor('#5865F2')
-                .setDescription(respuestas.map((r, i) => '**' + (i + 1) + '. ' + r.pregunta + '**\n' + r.respuesta).join('\n\n'))
-                .addFields({ name: 'Usuario', value: '<@' + interaction.user.id + '> (' + interaction.user.tag + ')', inline: true })
+                .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
+                .setDescription(respuestas.map((r, i) => '**' + (i+1) + '. ' + r.pregunta + '**\n> ' + r.respuesta).join('\n\n'))
+                .addFields({ name: '👤 Usuario', value: '<@' + interaction.user.id + '> (' + interaction.user.tag + ')', inline: true })
                 .setTimestamp();
+
+            const submissionId = interaction.user.id + '_' + Date.now();
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('form_approve_' + submissionId + '_' + formName)
+                    .setLabel('Aprobar').setEmoji('✅').setStyle(ButtonStyle.Success),
+                new ButtonBuilder()
+                    .setCustomId('form_reject_' + submissionId + '_' + formName)
+                    .setLabel('Rechazar').setEmoji('❌').setStyle(ButtonStyle.Danger)
+            );
+
+            // Guardar respuestas temporalmente
+            if (!fs.existsSync('./data')) fs.mkdirSync('./data');
+            let submissions = {};
+            if (fs.existsSync('./data/submissions.json')) submissions = JSON.parse(fs.readFileSync('./data/submissions.json'));
+            submissions[submissionId] = {
+                userId: interaction.user.id,
+                userTag: interaction.user.tag,
+                formName,
+                respuestas,
+                canalAprobados: formData.canalAprobados,
+                canalRechazados: formData.canalRechazados,
+                timestamp: Date.now()
+            };
+            fs.writeFileSync('./data/submissions.json', JSON.stringify(submissions, null, 2));
+
             const canalRespuestas = interaction.guild.channels.cache.get(formData.canalRespuestas);
             if (canalRespuestas) {
-                await canalRespuestas.send({ embeds: [embed] });
-                return interaction.reply({ content: '✅ Tu formulario fue enviado correctamente.', ephemeral: true });
+                await canalRespuestas.send({ embeds: [embed], components: [row] });
+                return interaction.reply({ content: '✅ Tu formulario fue enviado. El staff lo revisara pronto.', ephemeral: true });
             } else {
                 return interaction.reply({ content: '❌ No se encontro el canal de respuestas.', ephemeral: true });
             }
+        }
+
+        // RAZON DE RECHAZO
+        if (interaction.customId.startsWith('form_reject_reason_')) {
+            const submissionId = interaction.customId.replace('form_reject_reason_', '');
+            const razon = interaction.fields.getTextInputValue('razon');
+            let submissions = {};
+            if (fs.existsSync('./data/submissions.json')) submissions = JSON.parse(fs.readFileSync('./data/submissions.json'));
+            const sub = submissions[submissionId];
+            if (!sub) return interaction.reply({ content: '❌ Respuesta no encontrada.', ephemeral: true });
+
+            const canalRechazados = interaction.guild.channels.cache.get(sub.canalRechazados);
+            if (canalRechazados) {
+                const embed = new EmbedBuilder()
+                    .setTitle('❌ Solicitud Rechazada: ' + sub.formName)
+                    .setColor('#ED4245')
+                    .setDescription(sub.respuestas.map((r, i) => '**' + (i+1) + '. ' + r.pregunta + '**\n> ' + r.respuesta).join('\n\n'))
+                    .addFields(
+                        { name: '👤 Usuario', value: '<@' + sub.userId + '>', inline: true },
+                        { name: '❌ Razon', value: razon, inline: false }
+                    ).setTimestamp();
+                await canalRechazados.send({ embeds: [embed] });
+            }
+
+            try {
+                const user = await client.users.fetch(sub.userId);
+                await user.send({
+                    embeds: [new EmbedBuilder()
+                        .setTitle('❌ Tu solicitud fue rechazada')
+                        .setColor('#ED4245')
+                        .setDescription('Tu formulario **' + sub.formName + '** fue rechazado.\n\n**Razon:** ' + razon)
+                        .setTimestamp()
+                    ]
+                });
+            } catch (e) {}
+
+            delete submissions[submissionId];
+            fs.writeFileSync('./data/submissions.json', JSON.stringify(submissions, null, 2));
+            return interaction.update({ content: '✅ Rechazado y notificado.', components: [], embeds: [] });
         }
 
     } catch (error) {
