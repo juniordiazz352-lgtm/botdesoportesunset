@@ -4,7 +4,7 @@ const fs = require('fs');
 module.exports = async (interaction) => {
     if (!interaction.isStringSelectMenu()) return;
     if (interaction.customId === 'form_select') {
-        // Responder inmediatamente para evitar el error "interacción fallida"
+        // Responder inmediatamente para evitar el "pensando" infinito
         await interaction.deferReply({ ephemeral: true });
 
         const formName = interaction.values[0];

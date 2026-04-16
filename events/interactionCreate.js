@@ -1,4 +1,5 @@
 const handleSlashCommand = require('../handlers/handleSlashCommand');
+const buttonHandler = require('../interactions/buttonHandler');
 const selectMenuHandler = require('../interactions/selectMenuHandler');
 const modalHandler = require('../interactions/modalHandler');
 
@@ -8,6 +9,8 @@ module.exports = {
         try {
             if (interaction.isChatInputCommand()) {
                 await handleSlashCommand(interaction);
+            } else if (interaction.isButton()) {
+                await buttonHandler(interaction);
             } else if (interaction.isStringSelectMenu()) {
                 await selectMenuHandler(interaction);
             } else if (interaction.isModalSubmit()) {
