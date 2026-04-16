@@ -35,5 +35,7 @@ module.exports = async (interaction) => {
 
         // Mostrar modal (esto reemplaza la respuesta diferida)
         await interaction.showModal(modal);
+        // Nota: después de mostrar el modal, el menú desplegable sigue intacto
+        // El usuario puede volver a seleccionar la misma opción más tarde.
     }
 };
