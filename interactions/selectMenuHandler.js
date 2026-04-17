@@ -4,18 +4,17 @@ const fs = require('fs');
 module.exports = async (interaction) => {
     if (!interaction.isStringSelectMenu()) return;
     if (interaction.customId === 'form_select') {
-        // Responder inmediatamente para evitar el "pensando" infinito
-        await interaction.deferReply({ ephemeral: true });
-
+        // Obtener el nombre del formulario seleccionado
         const formName = interaction.values[0];
         const formsPath = './data/forms.json';
         if (!fs.existsSync(formsPath)) {
-            return interaction.editReply({ content: '❌ No hay formularios disponibles.' });
+            // Si no hay formularios, responder con un mensaje efímero
+            return interaction.reply({ content: '❌ No hay formularios disponibles.', ephemeral: true });
         }
         const forms = JSON.parse(fs.readFileSync(formsPath));
         const form = forms[formName];
         if (!form) {
-            return interaction.editReply({ content: `❌ El formulario "${formName}" no existe.` });
+            return interaction.reply({ content: `❌ El formulario "${formName}" no existe.`, ephemeral: true });
         }
 
         // Crear modal con las preguntas
@@ -33,9 +32,7 @@ module.exports = async (interaction) => {
             modal.addComponents(new ActionRowBuilder().addComponents(input));
         }
 
-        // Mostrar modal (esto reemplaza la respuesta diferida)
+        // Mostrar el modal (esto responde a la interacción inmediatamente)
         await interaction.showModal(modal);
-        // Nota: después de mostrar el modal, el menú desplegable sigue intacto
-        // El usuario puede volver a seleccionar la misma opción más tarde.
     }
 };
